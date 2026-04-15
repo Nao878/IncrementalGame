@@ -1,9 +1,9 @@
-using UnityEngine;
 using System.Collections;
+using TMPro;
+using UnityEngine;
 
 /// <summary>
-/// アイテム（ブロック）本体のコンポーネント。
-/// コルーチンによる滑らかな移動を実装する。
+/// Conveyor block with TMP label, movement, and optional clog state.
 /// </summary>
 public class Item : MonoBehaviour
 {
@@ -12,34 +12,29 @@ public class Item : MonoBehaviour
 
     private ItemData data;
     private SpriteRenderer spriteRenderer;
+    private TextMeshPro labelTmp;
+    private TextMeshPro bangTmp;
+    private BoxCollider2D hitBox;
     private Vector2Int currentGridPos;
     private bool isMoving = false;
     private bool isMarkedForMerge = false;
+    private Vector3 baseScale = Vector3.one;
 
-    /// <summary>アイテムデータ</summary>
     public ItemData Data { get { return data; } }
-
-    /// <summary>現在のグリッド座標</summary>
     public Vector2Int CurrentGridPos { get { return currentGridPos; } }
-
-    /// <summary>移動中かどうか</summary>
     public bool IsMoving { get { return isMoving; } }
 
-    /// <summary>合成予約済みかどうか</summary>
     public bool IsMarkedForMerge
     {
         get { return isMarkedForMerge; }
         set { isMarkedForMerge = value; }
     }
 
-    /// <summary>
-    /// アイテムの初期化
-    /// </summary>
-    public void Initialize(Vector2Int gridPos, string text, Color color)
+    public void Initialize(Vector2Int gridPos, string text, Color color, bool isClog = false)
     {
         currentGridPos = gridPos;
+        baseScale = Vector3.one;
 
-        // SpriteRenderer設定
         spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer == null)
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
@@ -48,41 +43,132 @@ public class Item : MonoBehaviour
         spriteRenderer.sortingOrder = 5;
         SpriteFactory.ApplyUnlitMaterial(spriteRenderer);
 
-        // ItemDataコンポーネント
         data = GetComponent<ItemData>();
         if (data == null)
             data = gameObject.AddComponent<ItemData>();
 
-        data.Setup(text, color);
+        data.Setup(text, color, isClog);
         spriteRenderer.color = color;
 
-        // ワールド座標を設定
-        transform.position = GridManager.Instance.GridToWorld(gridPos);
+        EnsureCollider();
+        EnsureLabel(text, isClog);
+
+        Vector3 worldPos = (GridManager.Instance != null)
+            ? GridManager.Instance.GridToWorld(gridPos)
+            : new Vector3(gridPos.x, gridPos.y, 0f);
+        transform.position = worldPos;
+        transform.localScale = baseScale;
         gameObject.name = "Item_" + text;
 
-        // セルに登録
-        GridCell cell = GridManager.Instance.GetCell(gridPos);
+        GridCell cell = GridManager.Instance != null ? GridManager.Instance.GetCell(gridPos) : null;
         if (cell != null)
             cell.CurrentItem = this;
     }
 
-    /// <summary>
-    /// 指定したグリッド位置へ滑らかに移動するコルーチンを開始
-    /// </summary>
+    void EnsureCollider()
+    {
+        hitBox = GetComponent<BoxCollider2D>();
+        if (hitBox == null)
+            hitBox = gameObject.AddComponent<BoxCollider2D>();
+        float cellSize = (GridManager.Instance != null) ? GridManager.Instance.CellSize : 1.0f;
+        float s = cellSize * 0.88f;
+        hitBox.size = new Vector2(s, s);
+    }
+
+    void EnsureLabel(string text, bool isClog)
+    {
+        if (labelTmp == null)
+        {
+            GameObject labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(transform, false);
+            // Bring text slightly toward camera to avoid z-fighting on the block.
+            labelObj.transform.localPosition = new Vector3(0f, 0f, -0.1f);
+            // TextMeshPro world-space glyph scale is large by default.
+            labelObj.transform.localScale = Vector3.one * 0.12f;
+            labelTmp = labelObj.AddComponent<TextMeshPro>();
+            GameFontSettings.ApplyTo(labelTmp);
+            labelTmp.alignment = TextAlignmentOptions.Center;
+            labelTmp.enableAutoSizing = false;
+            labelTmp.fontSize = 24;
+            labelTmp.overflowMode = TextOverflowModes.Overflow;
+            labelTmp.rectTransform.sizeDelta = new Vector2(6f, 6f);
+            labelTmp.textWrappingMode = TextWrappingModes.NoWrap;
+            MeshRenderer mr = labelTmp.GetComponent<MeshRenderer>();
+            if (mr != null)
+            {
+                mr.sortingOrder = 7;
+                mr.enabled = true;
+            }
+        }
+
+        labelTmp.text = text;
+        labelTmp.color = GetReadableTextColor(spriteRenderer != null ? spriteRenderer.color : Color.white);
+
+        if (isClog)
+        {
+            if (bangTmp == null)
+            {
+                GameObject bangObj = new GameObject("Bang");
+                bangObj.transform.SetParent(transform, false);
+                bangObj.transform.localPosition = new Vector3(0f, 0.38f, 0f);
+                bangTmp = bangObj.AddComponent<TextMeshPro>();
+                GameFontSettings.ApplyTo(bangTmp);
+                bangTmp.text = "!";
+                bangTmp.color = new Color(1f, 0.25f, 0.2f, 1f);
+                bangTmp.alignment = TextAlignmentOptions.Center;
+                bangTmp.enableAutoSizing = true;
+                bangTmp.fontSizeMin = 18;
+                bangTmp.fontSizeMax = 72;
+                bangTmp.fontStyle = FontStyles.Bold;
+                bangTmp.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f);
+                MeshRenderer bmr = bangTmp.GetComponent<MeshRenderer>();
+                if (bmr != null)
+                    bmr.sortingOrder = 8;
+            }
+            bangTmp.gameObject.SetActive(true);
+        }
+        else if (bangTmp != null)
+            bangTmp.gameObject.SetActive(false);
+    }
+
+    public void TryRemoveClogByPlayer()
+    {
+        if (data == null || !data.IsClog) return;
+        if (ItemManager.Instance != null)
+            ItemManager.Instance.UnregisterAndDestroy(this);
+    }
+
+    public void PlayMergeSuccessPop()
+    {
+        StartCoroutine(MergePopCoroutine());
+    }
+
+    IEnumerator MergePopCoroutine()
+    {
+        float dur = 0.22f;
+        float t = 0f;
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float k = Mathf.Clamp01(t / dur);
+            float s = 1f + Mathf.Sin(k * Mathf.PI) * 0.38f;
+            transform.localScale = baseScale * s;
+            yield return null;
+        }
+        transform.localScale = baseScale;
+    }
+
     public void MoveTo(Vector2Int targetPos)
     {
+        if (data != null && data.IsClog) return;
         if (isMoving) return;
         StartCoroutine(MoveCoroutine(targetPos));
     }
 
-    /// <summary>
-    /// 滑らかな移動コルーチン
-    /// </summary>
     private IEnumerator MoveCoroutine(Vector2Int targetPos)
     {
         isMoving = true;
 
-        // 元のセルから登録解除
         GridCell fromCell = GridManager.Instance.GetCell(currentGridPos);
         if (fromCell != null && fromCell.CurrentItem == this)
             fromCell.CurrentItem = null;
@@ -97,7 +183,6 @@ public class Item : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            // イージング（SmoothStep）で自然な動き
             t = t * t * (3f - 2f * t);
             transform.position = Vector3.Lerp(startPos, endPos, t);
             yield return null;
@@ -106,21 +191,16 @@ public class Item : MonoBehaviour
         transform.position = endPos;
         currentGridPos = targetPos;
 
-        // 移動先のセルに登録
         GridCell toCell = GridManager.Instance.GetCell(targetPos);
         if (toCell != null)
             toCell.CurrentItem = this;
 
         isMoving = false;
 
-        // 合成チェック通知
         if (ItemManager.Instance != null)
             ItemManager.Instance.CheckMergeAtCell(targetPos);
     }
 
-    /// <summary>
-    /// 色を更新する
-    /// </summary>
     public void UpdateColor(Color newColor)
     {
         if (data != null)
@@ -129,9 +209,6 @@ public class Item : MonoBehaviour
             spriteRenderer.color = newColor;
     }
 
-    /// <summary>
-    /// アイテムを破壊する
-    /// </summary>
     public void DestroyItem()
     {
         GridCell cell = GridManager.Instance.GetCell(currentGridPos);
@@ -139,5 +216,11 @@ public class Item : MonoBehaviour
             cell.CurrentItem = null;
 
         Destroy(gameObject);
+    }
+
+    Color GetReadableTextColor(Color blockColor)
+    {
+        float luma = (blockColor.r * 0.299f) + (blockColor.g * 0.587f) + (blockColor.b * 0.114f);
+        return luma > 0.55f ? Color.black : Color.white;
     }
 }

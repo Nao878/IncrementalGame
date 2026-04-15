@@ -7,7 +7,9 @@ public enum CellType
 {
     Empty,
     Conveyor,
-    Generator
+    Generator,
+    Combiner,
+    Collector
 }
 
 /// <summary>
@@ -25,6 +27,7 @@ public class GridCell : MonoBehaviour
     private SpriteRenderer spriteRenderer;
     private ConveyorBelt conveyor;
     private Item currentItem;
+    private FacilityNode facility;
 
     /// <summary>グリッド座標</summary>
     public Vector2Int GridPosition
@@ -53,11 +56,21 @@ public class GridCell : MonoBehaviour
         set { currentItem = value; }
     }
 
+    /// <summary>このマスに配置された施設</summary>
+    public FacilityNode Facility
+    {
+        get { return facility; }
+        set { facility = value; }
+    }
+
     /// <summary>このセルにアイテムが存在するか</summary>
     public bool HasItem { get { return currentItem != null; } }
 
     /// <summary>このセルにコンベアが存在するか</summary>
     public bool HasConveyor { get { return conveyor != null; } }
+
+    /// <summary>このセルに施設が存在するか</summary>
+    public bool HasFacility { get { return facility != null; } }
 
     private void Awake()
     {
@@ -117,6 +130,16 @@ public class GridCell : MonoBehaviour
         {
             spriteRenderer.sprite = SpriteFactory.GetGeneratorSprite();
             spriteRenderer.color = Color.white;
+        }
+        else if (cellType == CellType.Combiner)
+        {
+            spriteRenderer.sprite = SpriteFactory.GetSquareSprite();
+            spriteRenderer.color = new Color(0.45f, 0.36f, 0.75f, 1f);
+        }
+        else if (cellType == CellType.Collector)
+        {
+            spriteRenderer.sprite = SpriteFactory.GetSquareSprite();
+            spriteRenderer.color = new Color(0.25f, 0.6f, 0.65f, 1f);
         }
     }
 

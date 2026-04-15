@@ -10,7 +10,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Generator Settings")]
     [SerializeField] private Vector2Int generator1Pos = new Vector2Int(1, 8);
-    [SerializeField] private Vector2Int generator2Pos = new Vector2Int(8, 1);
+    [SerializeField] private Vector2Int generator2Pos = new Vector2Int(9, 8);
 
     [Header("Generator 1")]
     [SerializeField] private string gen1Text = "木";
@@ -18,7 +18,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private ConveyorDirection gen1Direction = ConveyorDirection.Right;
 
     [Header("Generator 2")]
-    [SerializeField] private string gen2Text = "火";
+    [SerializeField] private string gen2Text = "木";
     [SerializeField] private Color gen2Color = new Color(0.3f, 0.5f, 0.9f, 1f);
     [SerializeField] private ConveyorDirection gen2Direction = ConveyorDirection.Left;
 
@@ -30,6 +30,14 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+        if (GetComponent<KanjiDatabaseManager>() == null)
+            gameObject.AddComponent<KanjiDatabaseManager>();
+        if (GetComponent<ScoreManager>() == null)
+            gameObject.AddComponent<ScoreManager>();
+        if (GetComponent<FacilityPlacementManager>() == null)
+            gameObject.AddComponent<FacilityPlacementManager>();
+        if (GetComponent<BuildModeController>() == null)
+            gameObject.AddComponent<BuildModeController>();
     }
 
     private void Start()
@@ -48,11 +56,13 @@ public class GameManager : MonoBehaviour
         // 2. ジェネレーターを配置
         SetupGenerators();
 
-        // 3. テスト用コンベアの道を設置
+        // 3. テスト用コンベアの道を設置（初期動作確認用）
         SetupTestConveyors();
 
         // 4. カメラ位置を調整
         SetupCamera();
+
+        GameHud.EnsureExists();
 
         Debug.Log("Game initialized!");
     }
@@ -124,22 +134,14 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void SetupTestConveyors()
     {
-        // ジェネレーター1のパス: (1,8) → 右 → (2,8) → (3,8) → (4,8) → (5,8)
         PlaceConveyorWithDirection(new Vector2Int(2, 8), ConveyorDirection.Right);
         PlaceConveyorWithDirection(new Vector2Int(3, 8), ConveyorDirection.Right);
         PlaceConveyorWithDirection(new Vector2Int(4, 8), ConveyorDirection.Right);
         PlaceConveyorWithDirection(new Vector2Int(5, 8), ConveyorDirection.Right);
 
-        // ジェネレーター2のパス: (8,1) → 左 → (7,1) → (6,1) → (5,1) → 上
-        PlaceConveyorWithDirection(new Vector2Int(7, 1), ConveyorDirection.Left);
-        PlaceConveyorWithDirection(new Vector2Int(6, 1), ConveyorDirection.Left);
-        PlaceConveyorWithDirection(new Vector2Int(5, 1), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 2), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 3), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 4), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 5), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 6), ConveyorDirection.Up);
-        PlaceConveyorWithDirection(new Vector2Int(5, 7), ConveyorDirection.Up);
+        PlaceConveyorWithDirection(new Vector2Int(8, 8), ConveyorDirection.Left);
+        PlaceConveyorWithDirection(new Vector2Int(7, 8), ConveyorDirection.Left);
+        PlaceConveyorWithDirection(new Vector2Int(6, 8), ConveyorDirection.Left);
 
         Debug.Log("Test conveyors placed!");
     }

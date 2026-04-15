@@ -1,8 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// アイテムが持つデータコンポーネント。
-/// 将来の漢字合成システムに拡張するためのString型フィールドを含む。
+/// Runtime data for grid items (text, color, merge depth, clog state).
 /// </summary>
 public class ItemData : MonoBehaviour
 {
@@ -10,35 +9,37 @@ public class ItemData : MonoBehaviour
     [SerializeField] private string itemText = "";
     [SerializeField] private Color itemColor = Color.white;
     [SerializeField] private int mergeCount = 0;
+    [SerializeField] private bool isClog = false;
 
-    /// <summary>文字データ（将来の漢字合成用）</summary>
     public string ItemText
     {
         get { return itemText; }
         set { itemText = value; }
     }
 
-    /// <summary>アイテムの色</summary>
     public Color ItemColor
     {
         get { return itemColor; }
         set { itemColor = value; }
     }
 
-    /// <summary>合成回数</summary>
     public int MergeCount
     {
         get { return mergeCount; }
         set { mergeCount = value; }
     }
 
-    /// <summary>
-    /// アイテムデータの初期化
-    /// </summary>
-    public void Setup(string text, Color color)
+    public bool IsClog
+    {
+        get { return isClog; }
+        set { isClog = value; }
+    }
+
+    public void Setup(string text, Color color, bool clog = false)
     {
         itemText = text;
         itemColor = color;
         mergeCount = 0;
+        isClog = clog;
     }
 }

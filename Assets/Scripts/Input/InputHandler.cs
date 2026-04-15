@@ -1,8 +1,8 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
-/// マウス・キーボード入力を処理する。
-/// 左クリック: コンベア配置、右クリック: コンベア削除、Rキー: 方向回転
+/// Mouse / keyboard input: build mode placement and clogged-block cleanup.
 /// </summary>
 public class InputHandler : MonoBehaviour
 {
@@ -27,24 +27,21 @@ public class InputHandler : MonoBehaviour
         HandleInput();
     }
 
-    /// <summary>
-    /// マウスホバーでセルをハイライト
-    /// </summary>
     private void UpdateHover()
     {
+        if (GridManager.Instance == null)
+            return;
         Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
         mouseWorldPos.z = 0f;
 
         Vector2Int gridPos = GridManager.Instance.WorldToGrid(mouseWorldPos);
         hoveredCell = GridManager.Instance.GetCell(gridPos);
 
-        // 前回のハイライトを解除
         if (lastHoveredCell != null && lastHoveredCell != hoveredCell)
         {
             lastHoveredCell.SetHighlight(false);
         }
 
-        // 新しいセルをハイライト
         if (hoveredCell != null)
         {
             hoveredCell.SetHighlight(true);
@@ -53,31 +50,40 @@ public class InputHandler : MonoBehaviour
         lastHoveredCell = hoveredCell;
     }
 
-    /// <summary>
-    /// 入力処理
-    /// </summary>
     private void HandleInput()
     {
         if (hoveredCell == null) return;
 
         Vector2Int pos = hoveredCell.GridPosition;
+        Vector3 mouseWorld = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        mouseWorld.z = 0f;
 
-        // 左クリック: コンベア配置（既存なら回転）
-        if (Input.GetMouseButtonDown(0))
-        {
-            ConveyorManager.Instance.PlaceConveyor(pos);
-        }
-
-        // 右クリック: コンベア削除
         if (Input.GetMouseButtonDown(1))
         {
-            ConveyorManager.Instance.RemoveConveyor(pos);
+            Collider2D hit = Physics2D.OverlapPoint(mouseWorld);
+            if (hit != null)
+            {
+                Item item = hit.GetComponent<Item>();
+                if (item != null && item.Data != null && item.Data.IsClog)
+                {
+                    item.TryRemoveClogByPlayer();
+                    return;
+                }
+            }
         }
 
-        // Rキー: コンベアの方向回転
+        if (Input.GetMouseButtonDown(0))
+        {
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
+                return;
+            if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
+                BuildModeController.Instance.TryPlaceAt(pos);
+        }
+
         if (Input.GetKeyDown(KeyCode.R))
         {
-            ConveyorManager.Instance.RotateConveyor(pos);
+            if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
+                BuildModeController.Instance.RotatePreview();
         }
     }
 }
