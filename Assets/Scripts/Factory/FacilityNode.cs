@@ -25,6 +25,15 @@ public abstract class FacilityNode : MonoBehaviour
     public abstract FacilityType GetFacilityType();
 
     /// <summary>
+    /// Called to check if this facility can accept the item.
+    /// Override in subclasses if there are acceptance limits (e.g. Combiner full).
+    /// </summary>
+    public virtual bool CanAcceptItem(Item item)
+    {
+        return true;
+    }
+
+    /// <summary>
     /// Called when an item reaches this cell.
     /// Return true if the facility consumed/processed the item.
     /// </summary>

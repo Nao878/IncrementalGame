@@ -10,15 +10,6 @@ public class GameManager : MonoBehaviour
 
     public bool IsRunMode { get; private set; } = false;
 
-    [Header("Generator Settings")]
-    [SerializeField] private Vector2Int generator1Pos = new Vector2Int(1, 8);
-    [SerializeField] private Vector2Int generator2Pos = new Vector2Int(9, 8);
-
-    [Header("Generator 1")]
-    [SerializeField] private string gen1Text = "木";
-    [SerializeField] private Color gen1Color = new Color(0.9f, 0.4f, 0.3f, 1f);
-    [SerializeField] private ConveyorDirection gen1Direction = ConveyorDirection.Right;
-
     [Header("Generator 2")]
     [SerializeField] private string gen2Text = "木";
     [SerializeField] private Color gen2Color = new Color(0.3f, 0.5f, 0.9f, 1f);
@@ -55,19 +46,38 @@ public class GameManager : MonoBehaviour
         // 1. グリッドを生成
         GridManager.Instance.GenerateGrid();
 
-        // 2. ジェネレーターを配置
-        SetupGenerators();
+        // 2. メインハブの設置 (2x2)
+        SetupMainHub();
 
-        // 3. テスト用コンベアの道を設置（初期動作確認用）
-        SetupTestConveyors();
-
-        // 4. カメラ位置を調整
+        // 3. カメラ位置を調整
         SetupCamera();
 
         GameHud.EnsureExists();
 
         SetRunMode(false); // Start in Build Mode (timeScale = 0)
         Debug.Log("Game initialized! Mode = Build Mode");
+    }
+
+    private void SetupMainHub()
+    {
+        // グリッドの中央付近の2x2を使用
+        int cx = GridManager.Instance.Width / 2 - 1;
+        int cy = GridManager.Instance.Height / 2 - 1;
+
+        GameObject hubObj = new GameObject("MainHub");
+        MainHubNode hub = hubObj.AddComponent<MainHubNode>();
+
+        System.Collections.Generic.List<GridCell> cells = new System.Collections.Generic.List<GridCell>();
+        for (int y = cy; y < cy + 2; y++)
+        {
+            for (int x = cx; x < cx + 2; x++)
+            {
+                var cell = GridManager.Instance.GetCell(new Vector2Int(x, y));
+                if (cell != null) cells.Add(cell);
+            }
+        }
+        
+        hub.SetupHub(cells);
     }
 
     public void SetRunMode(bool runMode)
@@ -78,40 +88,6 @@ public class GameManager : MonoBehaviour
         {
             BuildModeController.Instance.SelectFacility(FacilityType.None);
         }
-    }
-
-    /// <summary>
-    /// ジェネレーターの初期配置
-    /// </summary>
-    private void SetupGenerators()
-    {
-        // ジェネレーター1（左上付近）
-        CreateGenerator(generator1Pos, gen1Text, gen1Color, gen1Direction);
-
-        // ジェネレーター2（右下付近）
-        CreateGenerator(generator2Pos, gen2Text, gen2Color, gen2Direction);
-    }
-
-    /// <summary>
-    /// ジェネレーターを作成して配置
-    /// </summary>
-    private void CreateGenerator(Vector2Int pos, string text, Color color, ConveyorDirection dir)
-    {
-        GridCell cell = GridManager.Instance.GetCell(pos);
-        if (cell == null)
-        {
-            Debug.LogError("Generator position out of bounds: " + pos);
-            return;
-        }
-
-        GameObject genObj = new GameObject("Generator_" + pos.x + "_" + pos.y);
-        genObj.transform.position = GridManager.Instance.GridToWorld(pos);
-        genObj.transform.SetParent(cell.transform);
-
-        ItemGenerator generator = genObj.AddComponent<ItemGenerator>();
-        generator.Initialize(pos, text, color, dir);
-
-        Debug.Log("Generator created at " + pos + " with text: " + text);
     }
 
     /// <summary>
@@ -138,44 +114,5 @@ public class GameManager : MonoBehaviour
 
         // 背景色を設定
         cam.backgroundColor = new Color(0.18f, 0.18f, 0.2f, 1f);
-    }
-
-    /// <summary>
-    /// テスト用のコンベアの道を設置。
-    /// ジェネレーター1(1,8)から右へ → (5,8)まで
-    /// ジェネレーター2(8,1)から左へ → (5,1)まで、そこから上へ → (5,8)で合流
-    /// </summary>
-    private void SetupTestConveyors()
-    {
-        PlaceConveyorWithDirection(new Vector2Int(2, 8), ConveyorDirection.Right);
-        PlaceConveyorWithDirection(new Vector2Int(3, 8), ConveyorDirection.Right);
-        PlaceConveyorWithDirection(new Vector2Int(4, 8), ConveyorDirection.Right);
-        PlaceConveyorWithDirection(new Vector2Int(5, 8), ConveyorDirection.Right);
-
-        PlaceConveyorWithDirection(new Vector2Int(8, 8), ConveyorDirection.Left);
-        PlaceConveyorWithDirection(new Vector2Int(7, 8), ConveyorDirection.Left);
-        PlaceConveyorWithDirection(new Vector2Int(6, 8), ConveyorDirection.Left);
-
-        Debug.Log("Test conveyors placed!");
-    }
-
-    /// <summary>
-    /// 指定位置にコンベアを指定方向で配置するヘルパー
-    /// </summary>
-    private void PlaceConveyorWithDirection(Vector2Int pos, ConveyorDirection dir)
-    {
-        GridCell cell = GridManager.Instance.GetCell(pos);
-        if (cell == null || cell.Type == CellType.Generator) return;
-
-        // コンベアを配置
-        GameObject conveyorObj = new GameObject("Conveyor_" + pos.x + "_" + pos.y);
-        conveyorObj.transform.position = GridManager.Instance.GridToWorld(pos);
-        conveyorObj.transform.SetParent(cell.transform);
-
-        ConveyorBelt conveyor = conveyorObj.AddComponent<ConveyorBelt>();
-        conveyor.Initialize(cell, dir);
-
-        cell.Conveyor = conveyor;
-        cell.SetCellType(CellType.Conveyor);
     }
 }

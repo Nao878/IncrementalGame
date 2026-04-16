@@ -159,8 +159,9 @@ public class GameHud : MonoBehaviour
         hlg.childForceExpandWidth = false;
 
         CreateButton(bottomBarGo.transform, "ベルトコンベア", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
+        CreateButton(bottomBarGo.transform, "発生機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Generator));
         CreateButton(bottomBarGo.transform, "合成機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
-        CreateButton(bottomBarGo.transform, "回収機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Collector));
+        CreateButton(bottomBarGo.transform, "焼却炉", () => BuildModeController.Instance?.SelectFacility(FacilityType.Incinerator));
         CreateButton(bottomBarGo.transform, "削除", () => BuildModeController.Instance?.SelectFacility(FacilityType.Delete));
         CreateButton(bottomBarGo.transform, "回転", () => BuildModeController.Instance?.RotatePreview());
         CreateButton(bottomBarGo.transform, "キャンセル", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));

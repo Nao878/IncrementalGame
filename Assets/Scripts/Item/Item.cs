@@ -22,6 +22,7 @@ public class Item : MonoBehaviour
 
     public ItemData Data { get { return data; } }
     public Vector2Int CurrentGridPos { get { return currentGridPos; } }
+    public Vector2Int PreviousGridPos { get; private set; }
     public bool IsMoving { get { return isMoving; } }
 
     public bool IsMarkedForMerge
@@ -168,6 +169,7 @@ public class Item : MonoBehaviour
     private IEnumerator MoveCoroutine(Vector2Int targetPos)
     {
         isMoving = true;
+        PreviousGridPos = currentGridPos;
 
         GridCell fromCell = GridManager.Instance.GetCell(currentGridPos);
         if (fromCell != null && fromCell.CurrentItem == this)
@@ -198,7 +200,7 @@ public class Item : MonoBehaviour
         isMoving = false;
 
         if (ItemManager.Instance != null)
-            ItemManager.Instance.CheckMergeAtCell(targetPos);
+            ItemManager.Instance.NotifyItemArrivedAtCell(this);
     }
 
     public void UpdateColor(Color newColor)

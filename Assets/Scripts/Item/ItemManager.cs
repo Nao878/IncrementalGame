@@ -9,12 +9,6 @@ public class ItemManager : MonoBehaviour
 {
     public static ItemManager Instance { get; private set; }
 
-    struct ConvergenceParticipant
-    {
-        public Item Item;
-        public Vector2Int FromGrid;
-    }
-
     [Header("Tick Settings")]
     [SerializeField] private float tickInterval = 0.8f;
 
@@ -81,11 +75,11 @@ public class ItemManager : MonoBehaviour
 
         allItems.RemoveAll(item => item == null);
 
-        Dictionary<Vector2Int, List<ConvergenceParticipant>> moveTargets = new Dictionary<Vector2Int, List<ConvergenceParticipant>>();
+        Dictionary<Vector2Int, List<Item>> moveTargets = new Dictionary<Vector2Int, List<Item>>();
 
         foreach (Item item in allItems)
         {
-            if (item == null || item.IsMoving || item.IsMarkedForMerge) continue;
+            if (item == null || item.IsMoving) continue;
             if (item.Data != null && item.Data.IsClog) continue;
 
             GridCell currentCell = GridManager.Instance.GetCell(item.CurrentGridPos);
@@ -99,180 +93,57 @@ public class ItemManager : MonoBehaviour
             GridCell nextCell = GridManager.Instance.GetCell(nextPos);
             if (nextCell == null) continue;
 
-            if (nextCell.HasItem && !nextCell.CurrentItem.IsMoving)
+            // 施設の場合は受け入れ可能かチェック
+            if (nextCell.HasFacility)
             {
-                Item occ = nextCell.CurrentItem;
-                if (occ != null && occ.Data != null && occ.Data.IsClog)
-                    continue;
+                if (!nextCell.Facility.CanAcceptItem(item))
+                    continue; // 施設がいっぱいなどの理由で拒否
+            }
+            else
+            {
+                if (nextCell.HasItem && !nextCell.CurrentItem.IsMoving)
+                    continue; // コンベア上が詰まっている
 
-                if (!nextCell.HasConveyor && !nextCell.HasFacility)
-                    continue;
+                if (!nextCell.HasConveyor)
+                    continue; // コンベアがないマスには進めない
             }
 
             if (!moveTargets.ContainsKey(nextPos))
-                moveTargets[nextPos] = new List<ConvergenceParticipant>();
-            moveTargets[nextPos].Add(new ConvergenceParticipant
-            {
-                Item = item,
-                FromGrid = item.CurrentGridPos
-            });
+                moveTargets[nextPos] = new List<Item>();
+            moveTargets[nextPos].Add(item);
         }
 
-        foreach (KeyValuePair<Vector2Int, List<ConvergenceParticipant>> kvp in moveTargets)
+        foreach (KeyValuePair<Vector2Int, List<Item>> kvp in moveTargets)
         {
             Vector2Int targetPos = kvp.Key;
-            List<ConvergenceParticipant> participants = kvp.Value;
+            List<Item> movingItems = kvp.Value;
 
-            if (participants.Count == 1)
+            GridCell targetCell = GridManager.Instance.GetCell(targetPos);
+            if (targetCell == null) continue;
+
+            if (targetCell.HasFacility && targetCell.Facility.GetFacilityType() == FacilityType.Combiner)
             {
-                GridCell targetCell = GridManager.Instance.GetCell(targetPos);
-                if (targetCell != null && !targetCell.HasItem)
-                {
-                    participants[0].Item.MoveTo(targetPos);
-                }
+                // 合成機へは複数方向からの同時進入を許可
+                foreach(var it in movingItems)
+                    it.MoveTo(targetPos);
             }
-            else if (participants.Count >= 2)
+            else
             {
-                StartCoroutine(MergeSequence(targetPos, participants));
+                // 通常のコンベアマスには1つだけ進入許可（複数重なるのを防ぐ）
+                movingItems[0].MoveTo(targetPos);
             }
         }
 
         isTicking = false;
     }
 
-    private IEnumerator MergeSequence(Vector2Int mergePos, List<ConvergenceParticipant> participants)
+    public void NotifyItemArrivedAtCell(Item item)
     {
-        foreach (ConvergenceParticipant p in participants)
-        {
-            if (p.Item == null) continue;
-            p.Item.IsMarkedForMerge = true;
-            p.Item.MoveTo(mergePos);
-        }
-
-        bool allDone = false;
-        while (!allDone)
-        {
-            allDone = true;
-            foreach (ConvergenceParticipant p in participants)
-            {
-                if (p.Item != null && p.Item.IsMoving)
-                {
-                    allDone = false;
-                    break;
-                }
-            }
-            yield return null;
-        }
-
-        PerformMerge(mergePos, participants);
-    }
-
-    private void PerformMerge(Vector2Int pos, List<ConvergenceParticipant> participants)
-    {
-        if (participants.Count < 2) return;
-
-        List<Item> alive = new List<Item>();
-        foreach (ConvergenceParticipant p in participants)
-        {
-            if (p.Item != null)
-                alive.Add(p.Item);
-        }
-
-        if (alive.Count < 2)
-            return;
-
-        foreach (Item it in alive)
-            it.IsMarkedForMerge = false;
-
-        if (alive.Count != 2)
-        {
-            CreateClogFromParticipants(pos, participants);
-            return;
-        }
-
-        Vector2Int leftNeighbor = pos + Vector2Int.left;
-        Vector2Int rightNeighbor = pos + Vector2Int.right;
-
-        Item leftItem = null;
-        Item rightItem = null;
-        foreach (ConvergenceParticipant p in participants)
-        {
-            if (p.Item == null) continue;
-            if (p.FromGrid == leftNeighbor)
-                leftItem = p.Item;
-            else if (p.FromGrid == rightNeighbor)
-                rightItem = p.Item;
-        }
-
-        if (leftItem == null || rightItem == null)
-        {
-            CreateClogFromParticipants(pos, participants);
-            return;
-        }
-
-        string leftK = leftItem.Data != null ? leftItem.Data.ItemText : "";
-        string rightK = rightItem.Data != null ? rightItem.Data.ItemText : "";
-
-        KanjiDatabaseManager db = KanjiDatabaseManager.Instance;
-        string mergedKanji = string.Empty;
-        bool merged = db != null && db.TryMergeKanji(new List<string> { leftK, rightK }, out mergedKanji);
-
-        if (!merged || string.IsNullOrEmpty(mergedKanji))
-        {
-            CreateClogFromParticipants(pos, participants);
-            return;
-        }
-
-        int totalMergeCount = 0;
-        foreach (Item item in alive)
-        {
-            if (item == null || item.Data == null) continue;
-            totalMergeCount += item.Data.MergeCount + 1;
-        }
-
-        foreach (Item item in alive)
-        {
-            allItems.Remove(item);
-            item.DestroyItem();
-        }
-
-        int colorIndex = Mathf.Min(totalMergeCount, mergeColors.Length - 1);
-        Color newColor = mergeColors[colorIndex];
-
-        Vector3 worldPos = GridManager.Instance.GridToWorld(pos);
-        MergeEffectPlayer.PlayMergeBurst(worldPos);
-
-        Item newItem = CreateItem(pos, mergedKanji, newColor, false);
-        newItem.Data.MergeCount = totalMergeCount;
-        newItem.PlayMergeSuccessPop();
-
-        Debug.Log("Merged at (" + pos.x + "," + pos.y + "): " + leftK + "+" + rightK + " => " + mergedKanji);
-    }
-
-    void CreateClogFromParticipants(Vector2Int pos, List<ConvergenceParticipant> participants)
-    {
-        string label = "";
-        foreach (ConvergenceParticipant p in participants)
-        {
-            if (p.Item == null || p.Item.Data == null) continue;
-            label += p.Item.Data.ItemText;
-            allItems.Remove(p.Item);
-            p.Item.DestroyItem();
-        }
-
-        if (string.IsNullOrEmpty(label))
-            label = "?";
-
-        CreateItem(pos, label, clogBlockColor, true);
-        Debug.LogWarning("Clog at (" + pos.x + "," + pos.y + "): " + label);
-    }
-
-    public void CheckMergeAtCell(Vector2Int pos)
-    {
-        GridCell cell = GridManager.Instance.GetCell(pos);
+        GridCell cell = GridManager.Instance.GetCell(item.CurrentGridPos);
         if (cell == null) return;
-        if (!cell.HasFacility || cell.CurrentItem == null) return;
-        cell.Facility.OnItemArrived(cell.CurrentItem);
+        if (!cell.HasFacility) return; // Only process arrival for facilities
+        
+        bool consumed = cell.Facility.OnItemArrived(item);
     }
 
     public Color GetMergeColor(int mergeCount)

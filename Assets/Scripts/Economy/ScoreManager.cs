@@ -11,6 +11,7 @@ public class ScoreManager : MonoBehaviour
     private int coins;
 
     public int Coins => coins;
+    public bool HasEarnedFirstIncome { get; private set; } = false;
 
     private void Awake()
     {
@@ -27,6 +28,7 @@ public class ScoreManager : MonoBehaviour
     {
         if (amount <= 0) return;
         coins += amount;
+        HasEarnedFirstIncome = true;
     }
 
     public bool SpendCoins(int amount)

@@ -41,10 +41,20 @@ public class FacilityPlacementManager : MonoBehaviour
         facilityObj.transform.SetParent(cell.transform);
 
         FacilityNode node = null;
-        if (type == FacilityType.Combiner)
+        if (type == FacilityType.Generator)
+        {
+            node = facilityObj.AddComponent<ItemGenerator>();
+            cell.SetCellType(CellType.Generator);
+        }
+        else if (type == FacilityType.Combiner)
         {
             node = facilityObj.AddComponent<CombinerNode>();
-            cell.SetCellType(CellType.Combiner);
+            // 独自のCellTypeにするか空き地扱いにするか。とりあえずCollector同様の扱いやEmptyで良いが、便宜上そのまま
+            // CellTypeに該当するものがなければ変更しなくてよい
+        }
+        else if (type == FacilityType.Incinerator)
+        {
+            node = facilityObj.AddComponent<IncineratorNode>();
         }
         else if (type == FacilityType.Collector)
         {
