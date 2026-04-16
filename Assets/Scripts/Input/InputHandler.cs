@@ -76,8 +76,14 @@ public class InputHandler : MonoBehaviour
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
-            if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
+            if (BuildModeController.Instance != null && BuildModeController.Instance.IsDeleteMode)
+            {
+                BuildModeController.Instance.TryDeleteAt(pos);
+            }
+            else if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
+            {
                 BuildModeController.Instance.TryPlaceAt(pos);
+            }
         }
 
         if (Input.GetKeyDown(KeyCode.R))

@@ -20,6 +20,7 @@ public class BuildModeController : MonoBehaviour
     public FacilityType SelectedType => selectedType;
     public ConveyorDirection PreviewDirection => previewDirection;
     public bool IsBuildMode => selectedType != FacilityType.None;
+    public bool IsDeleteMode => selectedType == FacilityType.Delete;
 
     private void Awake()
     {
@@ -48,6 +49,42 @@ public class BuildModeController : MonoBehaviour
         EnsureGhost();
         SetGhostVisible(true);
         UpdateGhostVisual();
+    }
+
+    /// <summary>
+    /// 削除モード時に施設を撤去する
+    /// </summary>
+    public bool TryDeleteAt(Vector2Int pos)
+    {
+        if (!IsDeleteMode) return false;
+        GridCell cell = GridManager.Instance?.GetCell(pos);
+        if (cell == null) return false;
+        if (cell.Type == CellType.Generator) return false;
+        if (cell.Type == CellType.Empty) return false;
+
+        // セル上のアイテムがあれば破壊
+        if (cell.CurrentItem != null)
+        {
+            ItemManager.Instance?.UnregisterAndDestroy(cell.CurrentItem);
+            cell.CurrentItem = null;
+        }
+
+        // コンベアを削除
+        if (cell.Conveyor != null)
+        {
+            Destroy(cell.Conveyor.gameObject);
+            cell.Conveyor = null;
+        }
+
+        // 施設を削除
+        if (cell.Facility != null)
+        {
+            Destroy(cell.Facility.gameObject);
+            cell.Facility = null;
+        }
+
+        cell.SetCellType(CellType.Empty);
+        return true;
     }
 
     public void RotatePreview()
@@ -127,12 +164,53 @@ public class BuildModeController : MonoBehaviour
                 ghostSprite.color = new Color(0.7f, 0.5f, 0.95f, 0.45f);
             else if (selectedType == FacilityType.Collector)
                 ghostSprite.color = new Color(0.35f, 0.9f, 0.95f, 0.45f);
+            else if (selectedType == FacilityType.Delete)
+                ghostSprite.color = new Color(0.95f, 0.25f, 0.25f, 0.5f);
         }
+
+        // 削除モードの「×」マーク表示切替
+        UpdateDeleteMarker();
     }
 
     void SetGhostVisible(bool visible)
     {
         if (ghost != null)
             ghost.SetActive(visible);
+    }
+
+    private TMPro.TextMeshPro deleteMarkerTmp;
+
+    void UpdateDeleteMarker()
+    {
+        if (ghost == null) return;
+
+        if (selectedType == FacilityType.Delete)
+        {
+            if (deleteMarkerTmp == null)
+            {
+                GameObject markerObj = new GameObject("DeleteMarker");
+                markerObj.transform.SetParent(ghost.transform, false);
+                markerObj.transform.localPosition = new Vector3(0f, 0f, -0.2f);
+                deleteMarkerTmp = markerObj.AddComponent<TMPro.TextMeshPro>();
+                GameFontSettings.ApplyTo(deleteMarkerTmp);
+                deleteMarkerTmp.text = "×";
+                deleteMarkerTmp.color = new Color(1f, 0.2f, 0.2f, 0.85f);
+                deleteMarkerTmp.fontSize = 10;
+                deleteMarkerTmp.alignment = TMPro.TextAlignmentOptions.Center;
+                deleteMarkerTmp.sortingOrder = 35;
+
+                RectTransform rt = deleteMarkerTmp.rectTransform;
+                rt.sizeDelta = new Vector2(1f, 1f);
+            }
+            deleteMarkerTmp.gameObject.SetActive(true);
+            // 削除モードでは方向矢印を非表示に
+            if (ghostArrow != null) ghostArrow.gameObject.SetActive(false);
+        }
+        else
+        {
+            if (deleteMarkerTmp != null)
+                deleteMarkerTmp.gameObject.SetActive(false);
+            if (ghostArrow != null) ghostArrow.gameObject.SetActive(true);
+        }
     }
 }

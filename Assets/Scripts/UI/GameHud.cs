@@ -34,7 +34,7 @@ public class GameHud : MonoBehaviour
         if (coinText != null)
         {
             int coins = ScoreManager.Instance != null ? ScoreManager.Instance.Coins : 0;
-            coinText.text = "Coins: " + coins;
+            coinText.text = "コイン: " + coins;
         }
 
         if (GameManager.Instance != null && bottomBarGo != null)
@@ -47,7 +47,7 @@ public class GameHud : MonoBehaviour
             }
             if (modeBtnText != null)
             {
-                modeBtnText.text = isRunMode ? "Switch to Build Mode" : "Switch to Run Mode";
+                modeBtnText.text = isRunMode ? "編集モードへ" : "稼働モードへ";
             }
         }
     }
@@ -67,7 +67,7 @@ public class GameHud : MonoBehaviour
         textGo.transform.SetParent(topBar.transform, false);
         TextMeshProUGUI tmp = textGo.AddComponent<TextMeshProUGUI>();
         GameFontSettings.ApplyTo(tmp);
-        tmp.text = "Build: select button -> place on grid / R: rotate / RMB on clog: clear";
+        tmp.text = "編集: ボタン→グリッド配置 / R: 回転 / 右クリック: 詰まり撤去";
         tmp.fontSize = 20;
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 12;
@@ -86,7 +86,7 @@ public class GameHud : MonoBehaviour
         coinGo.transform.SetParent(topBar.transform, false);
         coinText = coinGo.AddComponent<TextMeshProUGUI>();
         GameFontSettings.ApplyTo(coinText);
-        coinText.text = "Coins: 0";
+        coinText.text = "コイン: 0";
         coinText.color = new Color(0.95f, 0.85f, 0.2f, 1f);
         coinText.fontSize = 28;
         coinText.enableAutoSizing = true;
@@ -123,7 +123,7 @@ public class GameHud : MonoBehaviour
         modeTextGo.transform.SetParent(modeBtnGo.transform, false);
         modeBtnText = modeTextGo.AddComponent<TextMeshProUGUI>();
         GameFontSettings.ApplyTo(modeBtnText);
-        modeBtnText.text = "Switch Mode";
+        modeBtnText.text = "モード切替";
         modeBtnText.color = Color.white;
         modeBtnText.alignment = TextAlignmentOptions.Center;
         modeBtnText.enableAutoSizing = true;
@@ -158,11 +158,12 @@ public class GameHud : MonoBehaviour
         hlg.childControlHeight = true;
         hlg.childForceExpandWidth = false;
 
-        CreateButton(bottomBarGo.transform, "Conveyor", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
-        CreateButton(bottomBarGo.transform, "Combiner", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
-        CreateButton(bottomBarGo.transform, "Collector", () => BuildModeController.Instance?.SelectFacility(FacilityType.Collector));
-        CreateButton(bottomBarGo.transform, "Rotate", () => BuildModeController.Instance?.RotatePreview());
-        CreateButton(bottomBarGo.transform, "Cancel", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));
+        CreateButton(bottomBarGo.transform, "ベルトコンベア", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
+        CreateButton(bottomBarGo.transform, "合成機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
+        CreateButton(bottomBarGo.transform, "回収機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Collector));
+        CreateButton(bottomBarGo.transform, "削除", () => BuildModeController.Instance?.SelectFacility(FacilityType.Delete));
+        CreateButton(bottomBarGo.transform, "回転", () => BuildModeController.Instance?.RotatePreview());
+        CreateButton(bottomBarGo.transform, "キャンセル", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));
     }
 
     private void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction action)

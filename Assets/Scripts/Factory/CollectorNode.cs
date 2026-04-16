@@ -18,13 +18,20 @@ public class CollectorNode : FacilityNode
     {
         GameObject textObj = new GameObject("FacilityTypeVisual");
         textObj.transform.SetParent(transform, false);
-        textObj.transform.localPosition = new Vector3(0f, 0f, -0.1f);
+        textObj.transform.localPosition = new Vector3(0f, 0f, -0.5f);
         TextMeshPro tmp = textObj.AddComponent<TextMeshPro>();
         GameFontSettings.ApplyTo(tmp);
         tmp.text = t;
         tmp.color = color;
-        tmp.fontSize = 7;
+        tmp.fontSize = 8;
         tmp.alignment = TextAlignmentOptions.Center;
+        tmp.sortingOrder = 20;
+
+        RectTransform rt = tmp.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.sizeDelta = new Vector2(1f, 1f);
+        }
     }
 
     public override bool OnItemArrived(Item item)
