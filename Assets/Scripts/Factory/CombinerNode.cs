@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 /// <summary>
 /// Accepts blocks from any side, merges based on recipe, and outputs to configured side.
@@ -13,6 +14,20 @@ public class CombinerNode : FacilityNode
     {
         base.Initialize(cell, direction);
         BuildArrow();
+        BuildVisualText("+", new Color(0.95f, 0.4f, 0.2f, 1f));
+    }
+    
+    void BuildVisualText(string t, Color color)
+    {
+        GameObject textObj = new GameObject("FacilityTypeVisual");
+        textObj.transform.SetParent(transform, false);
+        textObj.transform.localPosition = new Vector3(0f, 0f, -0.1f);
+        TextMeshPro tmp = textObj.AddComponent<TextMeshPro>();
+        GameFontSettings.ApplyTo(tmp);
+        tmp.text = t;
+        tmp.color = color;
+        tmp.fontSize = 7; // Orthographic size appropriate
+        tmp.alignment = TextAlignmentOptions.Center;
     }
 
     public override FacilityType GetFacilityType() => FacilityType.Combiner;

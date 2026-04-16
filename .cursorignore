@@ -1,0 +1,122 @@
+# ============================================
+# .cursorignore - AI探索除外設定
+# ============================================
+# AIがプロジェクトを読み込む際に、不要なファイルやフォルダを
+# 探索してリソースを浪費するのを防ぐための設定です。
+
+# ---- Unity自動生成フォルダ ----
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+Recordings/
+
+# ---- IDE / エディタ生成ファイル ----
+.vs/
+.vscode/
+.idea/
+.gradle/
+.consulo/
+ExportedObj/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.unityproj
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.DotSettings.user
+
+# ---- ビルド成果物 ----
+*.apk
+*.aab
+*.unitypackage
+*.app
+*.exe
+*.dll
+
+# ---- バイナリ / 大容量アセット (AIが読んでも意味がない) ----
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tga
+*.psd
+*.tif
+*.tiff
+*.exr
+*.hdr
+*.svg
+*.webp
+*.mp3
+*.wav
+*.ogg
+*.mp4
+*.mov
+*.avi
+*.fbx
+*.obj
+*.blend
+*.blend1
+*.3ds
+*.dae
+*.max
+*.ttf
+*.otf
+*.woff
+*.woff2
+*.asset
+*.unity
+*.prefab
+*.mat
+*.controller
+*.anim
+*.overrideController
+*.physicMaterial
+*.physicsMaterial2D
+*.guiskin
+*.fontsettings
+*.cubemap
+*.flare
+*.renderTexture
+*.lighting
+*.shadervariants
+*.mixer
+
+# ---- Unity metaファイル ----
+*.meta
+
+# ---- AIが編集不要なアセットフォルダ ----
+Assets/TextMesh Pro/
+Assets/TutorialInfo/
+Assets/Screenshots/
+Assets/Settings/
+
+# ---- Addressables / Streaming ----
+Assets/StreamingAssets/
+Assets/AddressableAssetsData/
+
+# ---- テスト自動生成 ----
+InitTestScene*.unity*
+Assets/InitTestScene*.unity*
+
+# ---- その他 ----
+.git/
+.gitignore
+crashlytics-build.properties
+sysinfo.txt
+mono_crash.*
+*.log
+*.tmp

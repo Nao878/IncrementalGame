@@ -8,6 +8,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
+    public bool IsRunMode { get; private set; } = false;
+
     [Header("Generator Settings")]
     [SerializeField] private Vector2Int generator1Pos = new Vector2Int(1, 8);
     [SerializeField] private Vector2Int generator2Pos = new Vector2Int(9, 8);
@@ -64,7 +66,18 @@ public class GameManager : MonoBehaviour
 
         GameHud.EnsureExists();
 
-        Debug.Log("Game initialized!");
+        SetRunMode(false); // Start in Build Mode (timeScale = 0)
+        Debug.Log("Game initialized! Mode = Build Mode");
+    }
+
+    public void SetRunMode(bool runMode)
+    {
+        IsRunMode = runMode;
+        Time.timeScale = runMode ? 1f : 0f;
+        if (runMode && BuildModeController.Instance != null)
+        {
+            BuildModeController.Instance.SelectFacility(FacilityType.None);
+        }
     }
 
     /// <summary>
@@ -116,12 +129,12 @@ public class GameManager : MonoBehaviour
         float gridW = GridManager.Instance.Width * GridManager.Instance.CellSize;
         float gridH = GridManager.Instance.Height * GridManager.Instance.CellSize;
 
-        cam.orthographicSize = Mathf.Max(gridW, gridH) * 0.6f;
+        cam.orthographicSize = Mathf.Max(gridW, gridH) * 0.65f; // Slightly larger to accommodate offset
 
-        // カメラをグリッドの中心に配置
+        // カメラをレイアウトに合わせて配置（下部にUIが入るため、Y座標を少し上へずらす）
         float centerX = (GridManager.Instance.Width - 1) * GridManager.Instance.CellSize * 0.5f;
         float centerY = (GridManager.Instance.Height - 1) * GridManager.Instance.CellSize * 0.5f;
-        cam.transform.position = new Vector3(centerX, centerY, -10f);
+        cam.transform.position = new Vector3(centerX, centerY + 2.0f, -10f);
 
         // 背景色を設定
         cam.backgroundColor = new Color(0.18f, 0.18f, 0.2f, 1f);

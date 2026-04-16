@@ -4,11 +4,13 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
 /// <summary>
-/// 画面上部のヒント用 TMP（フォント統一）。
+/// 画面上部のヒント・スコア・モード切替ボタン、および下部の施設配置ボタン(ボトムバー)を生成・管理するHUD。
 /// </summary>
 public class GameHud : MonoBehaviour
 {
     private TextMeshProUGUI coinText;
+    private TextMeshProUGUI modeBtnText;
+    private GameObject bottomBarGo;
 
     public static void EnsureExists()
     {
@@ -22,8 +24,47 @@ public class GameHud : MonoBehaviour
         if (FindFirstObjectByType<EventSystem>() == null)
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
 
+        GameHud hud = root.AddComponent<GameHud>();
+        hud.BuildTopArea(root.transform);
+        hud.BuildBottomButtons(root.transform);
+    }
+
+    private void Update()
+    {
+        if (coinText != null)
+        {
+            int coins = ScoreManager.Instance != null ? ScoreManager.Instance.Coins : 0;
+            coinText.text = "Coins: " + coins;
+        }
+
+        if (GameManager.Instance != null && bottomBarGo != null)
+        {
+            // 稼働モードならボトムバーを隠す、編集モードなら表示する
+            bool isRunMode = GameManager.Instance.IsRunMode;
+            if (bottomBarGo.activeSelf == isRunMode)
+            {
+                bottomBarGo.SetActive(!isRunMode);
+            }
+            if (modeBtnText != null)
+            {
+                modeBtnText.text = isRunMode ? "Switch to Build Mode" : "Switch to Run Mode";
+            }
+        }
+    }
+
+    private void BuildTopArea(Transform parent)
+    {
+        GameObject topBar = new GameObject("TopBar");
+        topBar.transform.SetParent(parent, false);
+        RectTransform trt = topBar.AddComponent<RectTransform>();
+        trt.anchorMin = new Vector2(0f, 1f);
+        trt.anchorMax = new Vector2(1f, 1f);
+        trt.pivot = new Vector2(0.5f, 1f);
+        trt.sizeDelta = new Vector2(0f, 50f);
+
+        // ヒント
         GameObject textGo = new GameObject("Hint");
-        textGo.transform.SetParent(root.transform, false);
+        textGo.transform.SetParent(topBar.transform, false);
         TextMeshProUGUI tmp = textGo.AddComponent<TextMeshProUGUI>();
         GameFontSettings.ApplyTo(tmp);
         tmp.text = "Build: select button -> place on grid / R: rotate / RMB on clog: clear";
@@ -31,73 +72,100 @@ public class GameHud : MonoBehaviour
         tmp.enableAutoSizing = true;
         tmp.fontSizeMin = 12;
         tmp.fontSizeMax = 22;
-        tmp.alignment = TextAlignmentOptions.Top;
-        tmp.margin = new Vector4(16, 40, 16, 12);
+        tmp.alignment = TextAlignmentOptions.MidlineLeft;
         tmp.color = new Color(0.95f, 0.95f, 0.95f, 1f);
 
-        RectTransform rt = tmp.rectTransform;
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(1f, 1f);
-        rt.pivot = new Vector2(0.5f, 1f);
-        rt.anchoredPosition = Vector2.zero;
-        rt.sizeDelta = new Vector2(0f, 96f);
+        RectTransform hrt = tmp.rectTransform;
+        hrt.anchorMin = new Vector2(0f, 0f);
+        hrt.anchorMax = new Vector2(0.6f, 1f);
+        hrt.offsetMin = new Vector2(16, 0);
+        hrt.offsetMax = Vector2.zero;
 
-        GameHud hud = root.AddComponent<GameHud>();
-        hud.BuildBottomButtons(root.transform);
+        // コイン表示
+        GameObject coinGo = new GameObject("CoinText");
+        coinGo.transform.SetParent(topBar.transform, false);
+        coinText = coinGo.AddComponent<TextMeshProUGUI>();
+        GameFontSettings.ApplyTo(coinText);
+        coinText.text = "Coins: 0";
+        coinText.color = new Color(0.95f, 0.85f, 0.2f, 1f);
+        coinText.fontSize = 28;
+        coinText.enableAutoSizing = true;
+        coinText.fontSizeMin = 14;
+        coinText.fontSizeMax = 28;
+        coinText.alignment = TextAlignmentOptions.MidlineRight;
+
+        RectTransform crt = coinText.rectTransform;
+        crt.anchorMin = new Vector2(0.6f, 0f);
+        crt.anchorMax = new Vector2(0.8f, 1f);
+        crt.offsetMin = Vector2.zero;
+        crt.offsetMax = new Vector2(-16, 0);
+
+        // モード切替ボタン
+        GameObject modeBtnGo = new GameObject("ModeToggleButton");
+        modeBtnGo.transform.SetParent(topBar.transform, false);
+        RectTransform mrt = modeBtnGo.AddComponent<RectTransform>();
+        mrt.anchorMin = new Vector2(0.8f, 0f);
+        mrt.anchorMax = new Vector2(1f, 1f);
+        mrt.offsetMin = new Vector2(4, 4);
+        mrt.offsetMax = new Vector2(-8, -4);
+
+        Image mbg = modeBtnGo.AddComponent<Image>();
+        mbg.color = new Color(0.8f, 0.3f, 0.3f, 1f);
+        Button btn = modeBtnGo.AddComponent<Button>();
+        
+        btn.onClick.AddListener(() =>
+        {
+            if (GameManager.Instance != null)
+                GameManager.Instance.SetRunMode(!GameManager.Instance.IsRunMode);
+        });
+
+        GameObject modeTextGo = new GameObject("Text");
+        modeTextGo.transform.SetParent(modeBtnGo.transform, false);
+        modeBtnText = modeTextGo.AddComponent<TextMeshProUGUI>();
+        GameFontSettings.ApplyTo(modeBtnText);
+        modeBtnText.text = "Switch Mode";
+        modeBtnText.color = Color.white;
+        modeBtnText.alignment = TextAlignmentOptions.Center;
+        modeBtnText.enableAutoSizing = true;
+        modeBtnText.fontSizeMin = 12;
+        modeBtnText.fontSizeMax = 20;
+
+        RectTransform tRt = modeBtnText.rectTransform;
+        tRt.anchorMin = Vector2.zero;
+        tRt.anchorMax = Vector2.one;
+        tRt.offsetMin = Vector2.zero;
+        tRt.offsetMax = Vector2.zero;
     }
 
-    private void Update()
+    private void BuildBottomButtons(Transform parent)
     {
-        if (coinText == null) return;
-        int coins = ScoreManager.Instance != null ? ScoreManager.Instance.Coins : 0;
-        coinText.text = "Coins: " + coins;
-    }
-
-    void BuildBottomButtons(Transform parent)
-    {
-        GameObject bar = new GameObject("BuildBar");
-        bar.transform.SetParent(parent, false);
-        Image barBg = bar.AddComponent<Image>();
-        barBg.color = new Color(0f, 0f, 0f, 0.35f);
-        RectTransform brt = bar.GetComponent<RectTransform>();
+        bottomBarGo = new GameObject("BuildBar");
+        bottomBarGo.transform.SetParent(parent, false);
+        Image barBg = bottomBarGo.AddComponent<Image>();
+        // 背景を完全に不透明にし、明確な区切りをつける
+        barBg.color = new Color(0.12f, 0.14f, 0.18f, 1f);
+        
+        RectTransform brt = bottomBarGo.GetComponent<RectTransform>();
         brt.anchorMin = new Vector2(0f, 0f);
         brt.anchorMax = new Vector2(1f, 0f);
         brt.pivot = new Vector2(0.5f, 0f);
         brt.sizeDelta = new Vector2(0f, 96f);
 
-        HorizontalLayoutGroup hlg = bar.AddComponent<HorizontalLayoutGroup>();
+        HorizontalLayoutGroup hlg = bottomBarGo.AddComponent<HorizontalLayoutGroup>();
         hlg.spacing = 8f;
         hlg.padding = new RectOffset(12, 12, 12, 12);
         hlg.childControlWidth = true;
         hlg.childControlHeight = true;
         hlg.childForceExpandWidth = false;
 
-        coinText = CreateLabel(bar.transform, "Coins: 0", 220f);
-        CreateButton(bar.transform, "Conveyor", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
-        CreateButton(bar.transform, "Combiner", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
-        CreateButton(bar.transform, "Collector", () => BuildModeController.Instance?.SelectFacility(FacilityType.Collector));
-        CreateButton(bar.transform, "Rotate", () => BuildModeController.Instance?.RotatePreview());
-        CreateButton(bar.transform, "Cancel", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));
+        CreateButton(bottomBarGo.transform, "Conveyor", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
+        CreateButton(bottomBarGo.transform, "Combiner", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
+        CreateButton(bottomBarGo.transform, "Collector", () => BuildModeController.Instance?.SelectFacility(FacilityType.Collector));
+        CreateButton(bottomBarGo.transform, "Rotate", () => BuildModeController.Instance?.RotatePreview());
+        CreateButton(bottomBarGo.transform, "Cancel", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));
     }
 
-    TextMeshProUGUI CreateLabel(Transform parent, string text, float width)
-    {
-        GameObject go = new GameObject("Label");
-        go.transform.SetParent(parent, false);
-        TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
-        GameFontSettings.ApplyTo(t);
-        t.text = text;
-        t.color = Color.white;
-        t.enableAutoSizing = true;
-        t.fontSizeMin = 14;
-        t.fontSizeMax = 28;
-        t.alignment = TextAlignmentOptions.MidlineLeft;
-        LayoutElement le = go.AddComponent<LayoutElement>();
-        le.preferredWidth = width;
-        return t;
-    }
-
-    void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction action)
+    private void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction action)
     {
         GameObject buttonGo = new GameObject(label + "Button");
         buttonGo.transform.SetParent(parent, false);
