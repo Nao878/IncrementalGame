@@ -62,14 +62,16 @@ public class BuildModeController : MonoBehaviour
         if (!IsDeleteMode) return false;
         GridCell cell = GridManager.Instance?.GetCell(pos);
         if (cell == null) return false;
-        if (cell.Type == CellType.Generator) return false;
-        if (cell.Type == CellType.Empty) return false;
+        if (cell.Type == CellType.Collector) return false; // Main Hubは削除不可
+
+        bool deletedSomething = false;
 
         // セル上のアイテムがあれば破壊
         if (cell.CurrentItem != null)
         {
             ItemManager.Instance?.UnregisterAndDestroy(cell.CurrentItem);
             cell.CurrentItem = null;
+            deletedSomething = true;
         }
 
         // コンベアを削除
@@ -77,6 +79,7 @@ public class BuildModeController : MonoBehaviour
         {
             Destroy(cell.Conveyor.gameObject);
             cell.Conveyor = null;
+            deletedSomething = true;
         }
 
         // 施設を削除
@@ -84,10 +87,15 @@ public class BuildModeController : MonoBehaviour
         {
             Destroy(cell.Facility.gameObject);
             cell.Facility = null;
+            deletedSomething = true;
         }
 
-        cell.SetCellType(CellType.Empty);
-        return true;
+        if (deletedSomething)
+        {
+            cell.SetCellType(CellType.Empty);
+            return true;
+        }
+        return false;
     }
 
     public void RotatePreview()

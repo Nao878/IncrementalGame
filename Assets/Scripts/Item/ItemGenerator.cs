@@ -7,12 +7,16 @@ public class ItemGenerator : FacilityNode
 {
     [Header("Generator Settings")]
     [SerializeField] private float spawnInterval = 3.0f;
+    public string spawnKanji = "木";
     private bool isActive = true;
     private float spawnTimer = 0f;
     private float initialDelay = 1.0f;
     private bool initialDelayPassed = false;
 
     private readonly string[] basicKanjis = new string[] { "木", "日", "火", "水", "月" };
+    private int currentKanjiIndex = 0;
+    private TMPro.TextMeshPro kanjiLabel;
+
     private readonly Color[] basicColors = new Color[] {
         new Color(0.9f, 0.4f, 0.3f, 1f),
         new Color(0.8f, 0.3f, 0.3f, 1f),
@@ -20,6 +24,13 @@ public class ItemGenerator : FacilityNode
         new Color(0.3f, 0.5f, 0.9f, 1f),
         new Color(0.8f, 0.8f, 0.3f, 1f)
     };
+
+    public void CycleKanji()
+    {
+        currentKanjiIndex = (currentKanjiIndex + 1) % basicKanjis.Length;
+        spawnKanji = basicKanjis[currentKanjiIndex];
+        if (kanjiLabel != null) kanjiLabel.text = spawnKanji;
+    }
 
     public override void Initialize(GridCell cell, ConveyorDirection direction)
     {
@@ -44,6 +55,17 @@ public class ItemGenerator : FacilityNode
         tmp.fontSize = 4;
         tmp.rectTransform.sizeDelta = new Vector2(1f, 1f);
         tmp.sortingOrder = 3;
+
+        GameObject kanjiObj = new GameObject("GenKanji");
+        kanjiObj.transform.SetParent(pivot.transform, false);
+        kanjiObj.transform.localPosition = new Vector3(0f, 0f, 0f);
+        kanjiLabel = kanjiObj.AddComponent<TMPro.TextMeshPro>();
+        GameFontSettings.ApplyTo(kanjiLabel);
+        kanjiLabel.text = spawnKanji;
+        kanjiLabel.color = Color.white;
+        kanjiLabel.alignment = TMPro.TextAlignmentOptions.Center;
+        kanjiLabel.fontSize = 6;
+        kanjiLabel.sortingOrder = 4;
     }
 
     public override FacilityType GetFacilityType() => FacilityType.Generator;
@@ -97,9 +119,10 @@ public class ItemGenerator : FacilityNode
             // 排出先が詰まっていれば待機
             if (nextCell != null && nextCell.HasItem && !nextCell.CurrentItem.IsMoving) return;
 
-            int r = Random.Range(0, basicKanjis.Length);
-            string text = basicKanjis[r];
-            Color color = basicColors[r];
+            int colorIdx = System.Array.IndexOf(basicKanjis, spawnKanji);
+            if (colorIdx < 0) colorIdx = 0;
+            string text = spawnKanji;
+            Color color = basicColors[colorIdx];
             Item item = ItemManager.Instance.CreateItem(ownerCell.GridPosition, text, color);
             
             // 自動的に排出方向へ動かす

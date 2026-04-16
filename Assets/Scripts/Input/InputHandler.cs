@@ -76,6 +76,7 @@ public class InputHandler : MonoBehaviour
         {
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
+
             if (BuildModeController.Instance != null && BuildModeController.Instance.IsDeleteMode)
             {
                 BuildModeController.Instance.TryDeleteAt(pos);
@@ -83,6 +84,13 @@ public class InputHandler : MonoBehaviour
             else if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
             {
                 BuildModeController.Instance.TryPlaceAt(pos);
+            }
+            else
+            {
+                if (hoveredCell != null && hoveredCell.HasFacility && hoveredCell.Facility is ItemGenerator gen)
+                {
+                    gen.CycleKanji();
+                }
             }
         }
 

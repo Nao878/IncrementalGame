@@ -114,14 +114,14 @@ public class Item : MonoBehaviour
                 bangObj.transform.localPosition = new Vector3(0f, 0.38f, 0f);
                 bangTmp = bangObj.AddComponent<TextMeshPro>();
                 GameFontSettings.ApplyTo(bangTmp);
-                bangTmp.text = "!";
+                bangTmp.text = "詰まり";
                 bangTmp.color = new Color(1f, 0.25f, 0.2f, 1f);
                 bangTmp.alignment = TextAlignmentOptions.Center;
                 bangTmp.enableAutoSizing = true;
-                bangTmp.fontSizeMin = 18;
-                bangTmp.fontSizeMax = 72;
+                bangTmp.fontSizeMin = 8;
+                bangTmp.fontSizeMax = 24;
                 bangTmp.fontStyle = FontStyles.Bold;
-                bangTmp.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f);
+                bangTmp.rectTransform.sizeDelta = new Vector2(2.5f, 0.6f);
                 MeshRenderer bmr = bangTmp.GetComponent<MeshRenderer>();
                 if (bmr != null)
                     bmr.sortingOrder = 8;

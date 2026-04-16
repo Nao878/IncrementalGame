@@ -88,6 +88,8 @@ public class CombinerNode : FacilityNode
 
     public override bool CanAcceptItem(Item item)
     {
+        if (ownerCell.HasItem && ownerCell.CurrentItem.Data != null && ownerCell.CurrentItem.Data.IsClog) return false;
+
         Vector2Int diff = item.PreviousGridPos - ownerCell.GridPosition;
         
         // Output -> Opposite of diff must match Left or Right input port.
@@ -142,7 +144,22 @@ public class CombinerNode : FacilityNode
 
         if (!merged || string.IsNullOrEmpty(mergedKanji))
         {
-            ShowAlert();
+            int clogMergeCount = 0;
+            clogMergeCount += (leftItem.Data != null ? leftItem.Data.MergeCount : 0);
+            clogMergeCount += (rightItem.Data != null ? rightItem.Data.MergeCount : 0);
+            
+            string clogText = leftK + rightK;
+            if (clogText.Length > 2) clogText = clogText.Substring(0, 2);
+            
+            ItemManager.Instance.UnregisterAndDestroy(leftItem);
+            ItemManager.Instance.UnregisterAndDestroy(rightItem);
+            leftItem = null;
+            rightItem = null;
+
+            HideAlert();
+            
+            Item cloggedItem = ItemManager.Instance.CreateItem(ownerCell.GridPosition, clogText, Color.gray, true);
+            cloggedItem.Data.MergeCount = clogMergeCount;
             return;
         }
 
