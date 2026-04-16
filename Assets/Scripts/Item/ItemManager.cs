@@ -69,6 +69,12 @@ public class ItemManager : MonoBehaviour
         item.DestroyItem();
     }
 
+    public void UnregisterItem(Item item)
+    {
+        if (item == null) return;
+        allItems.Remove(item);
+    }
+
     private void ProcessTick()
     {
         isTicking = true;

@@ -3,26 +3,38 @@ using System.Collections.Generic;
 
 /// <summary>
 /// 左右からアイテムを受け取り、揃ったら合体させて前へ出力する施設。
+/// 内部に左右のスロット(文字列)を保持し、受け取ったブロックは即座にDestroyする。
 /// </summary>
 public class CombinerNode : FacilityNode
 {
-    private Item leftItem = null;
-    private Item rightItem = null;
+    public string leftSlot = "";
+    public string rightSlot = "";
 
-    private SpriteRenderer alertIcon;
+    private TMPro.TextMeshPro leftTextUI;
+    private TMPro.TextMeshPro rightTextUI;
+    private GameObject alertGo;
+
+    // キャッシュ用（排出時に使う等）
+    private int leftMergeCount = 0;
+    private int rightMergeCount = 0;
 
     public override void Initialize(GridCell cell, ConveyorDirection direction)
     {
         base.Initialize(cell, direction);
 
-        // 見た目の設定
+        // 見た目の設定 (背景板)
         SpriteRenderer sr = gameObject.AddComponent<SpriteRenderer>();
         sr.sprite = SpriteFactory.GetSquareSprite();
         sr.color = new Color(0.4f, 0.4f, 0.5f, 1f);
         sr.sortingOrder = 1;
         SpriteFactory.ApplyUnlitMaterial(sr);
 
-        // 矢印（出力）
+        // 削除対応のためのコライダーを追加
+        BoxCollider2D col = gameObject.AddComponent<BoxCollider2D>();
+        col.size = new Vector2(0.9f, 0.9f);
+        col.isTrigger = true; // クリック判定やトリガー用に
+
+        // 出力矢印
         GameObject outArrow = new GameObject("OutArrow");
         outArrow.transform.SetParent(transform, false);
         SpriteRenderer outSr = outArrow.AddComponent<SpriteRenderer>();
@@ -32,12 +44,15 @@ public class CombinerNode : FacilityNode
         outArrow.transform.localRotation = Quaternion.Euler(0f, 0f, direction.ToZRotation());
         SpriteFactory.ApplyUnlitMaterial(outSr);
 
-        // 左入力表示
+        // 入力ピン生成
         CreateInputPin("LeftPin", direction.RotateCCW(), new Color(0.8f, 0.4f, 0.4f, 0.8f));
-        // 右入力表示
         CreateInputPin("RightPin", direction.RotateCW(), new Color(0.4f, 0.4f, 0.8f, 0.8f));
 
-        // エラーアイコン(Clog)
+        // テキスト表示用UIの作成
+        leftTextUI = CreateSlotText("LeftSlotText", new Vector3(-0.25f, 0.1f, -0.1f));
+        rightTextUI = CreateSlotText("RightSlotText", new Vector3(0.25f, 0.1f, -0.1f));
+
+        // エラー(詰まり)の警告UI
         GameObject alertObj = new GameObject("AlertIcon");
         alertObj.transform.SetParent(transform, false);
         alertObj.transform.localPosition = new Vector3(0f, 0f, -0.2f);
@@ -50,16 +65,26 @@ public class CombinerNode : FacilityNode
         tmp.rectTransform.sizeDelta = new Vector2(1f, 1f);
         tmp.sortingOrder = 10;
         alertObj.SetActive(false);
-        alertIcon = tmp.GetComponent<SpriteRenderer>(); // Just saving the object to toggle active
-        // Wait, textmeshpro doesn't have spriterenderer. I'll just keep the GameObject.
+        alertGo = alertObj;
+        
+        UpdateUI();
     }
 
-    private GameObject alertGo;
-
-    private void Start()
+    private TMPro.TextMeshPro CreateSlotText(string objName, Vector3 localPos)
     {
-        Transform alertT = transform.Find("AlertIcon");
-        if (alertT != null) alertGo = alertT.gameObject;
+        GameObject textObj = new GameObject(objName);
+        textObj.transform.SetParent(transform, false);
+        textObj.transform.localPosition = localPos;
+
+        TMPro.TextMeshPro tmp = textObj.AddComponent<TMPro.TextMeshPro>();
+        GameFontSettings.ApplyTo(tmp); // NotoSansJP-Boldなどを適用
+        tmp.text = "?";
+        tmp.color = Color.white;
+        tmp.alignment = TMPro.TextAlignmentOptions.Center;
+        tmp.fontSize = 8;
+        tmp.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f);
+        tmp.sortingOrder = 10;
+        return tmp;
     }
 
     private void CreateInputPin(string name, ConveyorDirection dir, Color color)
@@ -88,82 +113,32 @@ public class CombinerNode : FacilityNode
 
     public override bool CanAcceptItem(Item item)
     {
-        if (ownerCell.HasItem && ownerCell.CurrentItem.Data != null && ownerCell.CurrentItem.Data.IsClog) return false;
-
-        Vector2Int diff = item.PreviousGridPos - ownerCell.GridPosition;
-        
-        // Output -> Opposite of diff must match Left or Right input port.
-        // Wait, if item comes FROM (x-1), diff is (-1, 0). 
-        // This corresponds to coming from Left of the grid.
-        // If Combiner expects input from its CCW direction:
-        ConveyorDirection leftDir = outputDirection.RotateCCW();
-        ConveyorDirection rightDir = outputDirection.RotateCW();
-
-        if (diff == leftDir.ToVector2Int() && leftItem == null) return true;
-        if (diff == rightDir.ToVector2Int() && rightItem == null) return true;
-
+        // 自動吸入（Proximity Intake）するため、コンベアからのプッシュは常に拒否して待機させる
         return false;
     }
 
     public override bool OnItemArrived(Item item)
     {
-        Vector2Int diff = item.PreviousGridPos - ownerCell.GridPosition;
-        ConveyorDirection leftDir = outputDirection.RotateCCW();
-        ConveyorDirection rightDir = outputDirection.RotateCW();
+        return false;
+    }
 
-        if (diff == leftDir.ToVector2Int())
+    private void UpdateUI()
+    {
+        if (leftTextUI != null)
         {
-            leftItem = item;
-            // Hide the item inside the Combiner visually
-            item.gameObject.SetActive(false);
+            leftTextUI.text = string.IsNullOrEmpty(leftSlot) ? "?" : leftSlot;
         }
-        else if (diff == rightDir.ToVector2Int())
+        if (rightTextUI != null)
         {
-            rightItem = item;
-            item.gameObject.SetActive(false);
+            rightTextUI.text = string.IsNullOrEmpty(rightSlot) ? "?" : rightSlot;
         }
-        else
-        {
-            return false; // Should not happen if CanAcceptItem is correct
-        }
-
-        TryMerge();
-        return true;
     }
 
     private void TryMerge()
     {
-        if (leftItem == null || rightItem == null) return;
+        if (string.IsNullOrEmpty(leftSlot) || string.IsNullOrEmpty(rightSlot)) return;
         
-        string leftK = leftItem.Data != null ? leftItem.Data.ItemText : "";
-        string rightK = rightItem.Data != null ? rightItem.Data.ItemText : "";
-
-        KanjiDatabaseManager db = KanjiDatabaseManager.Instance;
-        string mergedKanji = null;
-        bool merged = db != null && db.TryMergeKanji(new List<string> { leftK, rightK }, out mergedKanji);
-
-        if (!merged || string.IsNullOrEmpty(mergedKanji))
-        {
-            int clogMergeCount = 0;
-            clogMergeCount += (leftItem.Data != null ? leftItem.Data.MergeCount : 0);
-            clogMergeCount += (rightItem.Data != null ? rightItem.Data.MergeCount : 0);
-            
-            string clogText = leftK + rightK;
-            if (clogText.Length > 2) clogText = clogText.Substring(0, 2);
-            
-            ItemManager.Instance.UnregisterAndDestroy(leftItem);
-            ItemManager.Instance.UnregisterAndDestroy(rightItem);
-            leftItem = null;
-            rightItem = null;
-
-            HideAlert();
-            
-            Item cloggedItem = ItemManager.Instance.CreateItem(ownerCell.GridPosition, clogText, Color.gray, true);
-            cloggedItem.Data.MergeCount = clogMergeCount;
-            return;
-        }
-
-        // Check output cell
+        // 排出先のチェック
         Vector2Int outPos = ownerCell.GridPosition + outputDirection.ToVector2Int();
         if (!GridManager.Instance.IsInBounds(outPos))
         {
@@ -175,23 +150,45 @@ public class CombinerNode : FacilityNode
         if (outCell == null || (!outCell.HasConveyor && !outCell.HasFacility) || outCell.HasItem)
         {
             ShowAlert();
-            return;
+            return; // 排出先が埋まっているので待機
         }
-
-        // Generate merged item
-        int totalMergeCount = 0;
-        totalMergeCount += (leftItem.Data != null ? leftItem.Data.MergeCount : 0) + 1;
-        totalMergeCount += (rightItem.Data != null ? rightItem.Data.MergeCount : 0) + 1;
-        
-        ItemManager.Instance.UnregisterAndDestroy(leftItem);
-        ItemManager.Instance.UnregisterAndDestroy(rightItem);
-        leftItem = null;
-        rightItem = null;
 
         HideAlert();
 
-        Color newColor = ItemManager.Instance.GetMergeColor(totalMergeCount);
+        KanjiDatabaseManager db = KanjiDatabaseManager.Instance;
+        string mergedKanji = null;
+        bool merged = db != null && db.TryMergeKanji(new List<string> { leftSlot, rightSlot }, out mergedKanji);
 
+        if (!merged || string.IsNullOrEmpty(mergedKanji))
+        {
+            // --- 失敗パターン：ゴミ（廃棄物）としてそのまま排出する ---
+            int clogMergeCount = leftMergeCount + rightMergeCount;
+            string clogText = leftSlot + rightSlot;
+            if (clogText.Length > 2) clogText = clogText.Substring(0, 2);
+            
+            // スロットリセット
+            leftSlot = "";
+            rightSlot = "";
+            leftMergeCount = 0;
+            rightMergeCount = 0;
+            UpdateUI();
+
+            Item cloggedItem = ItemManager.Instance.CreateItem(outPos, clogText, Color.gray, false);
+            cloggedItem.Data.MergeCount = clogMergeCount;
+            return;
+        }
+
+        // --- 成功パターン ---
+        int totalMergeCount = leftMergeCount + rightMergeCount + 2;
+        
+        // スロットリセット
+        leftSlot = "";
+        rightSlot = "";
+        leftMergeCount = 0;
+        rightMergeCount = 0;
+        UpdateUI();
+
+        Color newColor = ItemManager.Instance.GetMergeColor(totalMergeCount);
         Item newItem = ItemManager.Instance.CreateItem(outPos, mergedKanji, newColor, false);
         newItem.Data.MergeCount = totalMergeCount;
         newItem.PlayMergeSuccessPop();
@@ -201,9 +198,76 @@ public class CombinerNode : FacilityNode
 
     private void Update()
     {
-        // Try to merge and output continuously if stalled
-        if (leftItem != null && rightItem != null)
+        CheckAndSuckItem(outputDirection.RotateCCW(), true);
+        CheckAndSuckItem(outputDirection.RotateCW(), false);
+
+        // 詰まりで待機していた場合、排出先が空いたら再試行
+        if (!string.IsNullOrEmpty(leftSlot) && !string.IsNullOrEmpty(rightSlot))
         {
+            TryMerge();
+        }
+    }
+
+    private void CheckAndSuckItem(ConveyorDirection dir, bool isLeft)
+    {
+        if (isLeft && !string.IsNullOrEmpty(leftSlot)) return;
+        if (!isLeft && !string.IsNullOrEmpty(rightSlot)) return;
+
+        Vector2Int neighborPos = ownerCell.GridPosition + dir.ToVector2Int();
+        if (GridManager.Instance == null || !GridManager.Instance.IsInBounds(neighborPos)) return;
+
+        GridCell neighborCell = GridManager.Instance.GetCell(neighborPos);
+        if (neighborCell != null && neighborCell.HasItem)
+        {
+            Item item = neighborCell.CurrentItem;
+            if (item.Data == null || item.Data.IsClog || item.IsSucked || item.IsMoving) return;
+
+            item.IsSucked = true;
+            if (ItemManager.Instance != null)
+            {
+                ItemManager.Instance.UnregisterItem(item);
+            }
+
+            StartCoroutine(SuckRoutine(item, isLeft));
+        }
+    }
+
+    private System.Collections.IEnumerator SuckRoutine(Item item, bool isLeft)
+    {
+        Vector3 startPos = item.transform.position;
+        Vector3 endPos = GridManager.Instance.GridToWorld(ownerCell.GridPosition);
+        float distance = Vector3.Distance(startPos, endPos);
+        float duration = distance / 4.0f; // 4.0f is moveSpeed
+        if (duration < 0.05f) duration = 0.05f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            t = t * t * (3f - 2f * t);
+            if (item != null && item.transform != null)
+            {
+                item.transform.position = Vector3.Lerp(startPos, endPos, t);
+            }
+            yield return null;
+        }
+
+        if (item != null)
+        {
+            if (isLeft)
+            {
+                leftSlot = item.Data.ItemText;
+                leftMergeCount = item.Data.MergeCount;
+            }
+            else
+            {
+                rightSlot = item.Data.ItemText;
+                rightMergeCount = item.Data.MergeCount;
+            }
+
+            item.DestroyItem();
+            UpdateUI();
             TryMerge();
         }
     }

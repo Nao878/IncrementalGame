@@ -31,6 +31,8 @@ public class Item : MonoBehaviour
         set { isMarkedForMerge = value; }
     }
 
+    public bool IsSucked { get; set; } = false;
+
     public void Initialize(Vector2Int gridPos, string text, Color color, bool isClog = false)
     {
         currentGridPos = gridPos;

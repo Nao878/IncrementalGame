@@ -79,7 +79,24 @@ public class InputHandler : MonoBehaviour
 
             if (BuildModeController.Instance != null && BuildModeController.Instance.IsDeleteMode)
             {
-                BuildModeController.Instance.TryDeleteAt(pos);
+                bool deleted = false;
+                // 先にコライダーを直接クリックしていないかチェック (合成機などを確実に削除するため)
+                Collider2D[] hits = Physics2D.OverlapPointAll(mouseWorld);
+                foreach (var hit in hits)
+                {
+                    FacilityNode node = hit.GetComponentInParent<FacilityNode>();
+                    if (node != null && node.OwnerCell != null)
+                    {
+                        BuildModeController.Instance.TryDeleteAt(node.OwnerCell.GridPosition);
+                        deleted = true;
+                        break;
+                    }
+                }
+
+                if (!deleted)
+                {
+                    BuildModeController.Instance.TryDeleteAt(pos);
+                }
             }
             else if (BuildModeController.Instance != null && BuildModeController.Instance.IsBuildMode)
             {
