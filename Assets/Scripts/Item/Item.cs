@@ -185,12 +185,19 @@ public class Item : MonoBehaviour
 
         while (elapsed < duration)
         {
+            if (this == null) yield break;
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             t = t * t * (3f - 2f * t);
-            transform.position = Vector3.Lerp(startPos, endPos, t);
+
+            if (transform != null)
+                transform.position = Vector3.Lerp(startPos, endPos, t);
+                
             yield return null;
         }
+
+        if (this == null) yield break;
 
         transform.position = endPos;
         currentGridPos = targetPos;
@@ -226,5 +233,25 @@ public class Item : MonoBehaviour
     {
         float luma = (blockColor.r * 0.299f) + (blockColor.g * 0.587f) + (blockColor.b * 0.114f);
         return luma > 0.55f ? Color.black : Color.white;
+    }
+
+    // --- Deletion Mode Feedback ---
+
+    private void OnMouseEnter()
+    {
+        if (BuildModeController.Instance != null && BuildModeController.Instance.IsDeleteMode)
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 0.5f);
+        }
+    }
+
+    private void OnMouseExit()
+    {
+        // Restore opacity
+        if (spriteRenderer != null && data != null)
+        {
+            spriteRenderer.color = new Color(data.ItemColor.r, data.ItemColor.g, data.ItemColor.b, 1.0f);
+        }
     }
 }

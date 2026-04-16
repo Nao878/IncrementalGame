@@ -43,7 +43,13 @@ public class FacilityPlacementManager : MonoBehaviour
         FacilityNode node = null;
         if (type == FacilityType.Generator)
         {
-            node = facilityObj.AddComponent<ItemGenerator>();
+            var gen = facilityObj.AddComponent<ItemGenerator>();
+            // 建築コントローラーから現在選択されている漢字をセット
+            if (BuildModeController.Instance != null)
+            {
+                gen.spawnKanji = BuildModeController.Instance.SelectedKanjiToSpawn;
+            }
+            node = gen;
             cell.SetCellType(CellType.Generator);
         }
         else if (type == FacilityType.Combiner)

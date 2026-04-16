@@ -80,16 +80,31 @@ public class InputHandler : MonoBehaviour
             if (BuildModeController.Instance != null && BuildModeController.Instance.IsDeleteMode)
             {
                 bool deleted = false;
-                // 先にコライダーを直接クリックしていないかチェック (合成機などを確実に削除するため)
+                // 先にアイテム（漢字ブロック）を直接クリックしていないかチェック
                 Collider2D[] hits = Physics2D.OverlapPointAll(mouseWorld);
                 foreach (var hit in hits)
                 {
-                    FacilityNode node = hit.GetComponentInParent<FacilityNode>();
-                    if (node != null && node.OwnerCell != null)
+                    Item item = hit.GetComponent<Item>();
+                    if (item != null)
                     {
-                        BuildModeController.Instance.TryDeleteAt(node.OwnerCell.GridPosition);
+                        ItemManager.Instance?.UnregisterAndDestroy(item);
                         deleted = true;
                         break;
+                    }
+                }
+
+                if (!deleted)
+                {
+                    // アイテムでなければ施設などをチェック
+                    foreach (var hit in hits)
+                    {
+                        FacilityNode node = hit.GetComponentInParent<FacilityNode>();
+                        if (node != null && node.OwnerCell != null)
+                        {
+                            BuildModeController.Instance.TryDeleteAt(node.OwnerCell.GridPosition);
+                            deleted = true;
+                            break;
+                        }
                     }
                 }
 

@@ -2,21 +2,17 @@ using UnityEngine;
 using System.Collections.Generic;
 
 /// <summary>
-/// 左右からアイテムを受け取り、揃ったら合体させて前へ出力する施設。
-/// 内部に左右のスロット(文字列)を保持し、受け取ったブロックは即座にDestroyする。
+/// 順不同・全方位対応の合成機。
+/// 隣接するマスからアイテムを吸い込み、スロットが2つ埋まったら合体を試みる。
 /// </summary>
 public class CombinerNode : FacilityNode
 {
-    public string leftSlot = "";
-    public string rightSlot = "";
+    // スロット管理（最大2つ）
+    private List<string> storedKanjis = new List<string>();
+    private List<int> storedMergeCounts = new List<int>();
 
-    private TMPro.TextMeshPro leftTextUI;
-    private TMPro.TextMeshPro rightTextUI;
+    private TMPro.TextMeshPro[] slotTexts = new TMPro.TextMeshPro[2];
     private GameObject alertGo;
-
-    // キャッシュ用（排出時に使う等）
-    private int leftMergeCount = 0;
-    private int rightMergeCount = 0;
 
     public override void Initialize(GridCell cell, ConveyorDirection direction)
     {
@@ -32,7 +28,7 @@ public class CombinerNode : FacilityNode
         // 削除対応のためのコライダーを追加
         BoxCollider2D col = gameObject.AddComponent<BoxCollider2D>();
         col.size = new Vector2(0.9f, 0.9f);
-        col.isTrigger = true; // クリック判定やトリガー用に
+        col.isTrigger = true;
 
         // 出力矢印
         GameObject outArrow = new GameObject("OutArrow");
@@ -44,13 +40,14 @@ public class CombinerNode : FacilityNode
         outArrow.transform.localRotation = Quaternion.Euler(0f, 0f, direction.ToZRotation());
         SpriteFactory.ApplyUnlitMaterial(outSr);
 
-        // 入力ピン生成
-        CreateInputPin("LeftPin", direction.RotateCCW(), new Color(0.8f, 0.4f, 0.4f, 0.8f));
-        CreateInputPin("RightPin", direction.RotateCW(), new Color(0.4f, 0.4f, 0.8f, 0.8f));
+        // 全方位の吸入インジケーター（出力方向以外）
+        CreateInputPin("InputPin_Back", direction.Opposite(), new Color(0.6f, 0.6f, 0.8f, 0.6f));
+        CreateInputPin("InputPin_Left", direction.RotateCCW(), new Color(0.6f, 0.6f, 0.8f, 0.6f));
+        CreateInputPin("InputPin_Right", direction.RotateCW(), new Color(0.6f, 0.6f, 0.8f, 0.6f));
 
-        // テキスト表示用UIの作成
-        leftTextUI = CreateSlotText("LeftSlotText", new Vector3(-0.25f, 0.1f, -0.1f));
-        rightTextUI = CreateSlotText("RightSlotText", new Vector3(0.25f, 0.1f, -0.1f));
+        // テキスト表示用UIの作成（汎用的な上下配置）
+        slotTexts[0] = CreateSlotText("Slot1Text", new Vector3(0f, 0.22f, -0.1f));
+        slotTexts[1] = CreateSlotText("Slot2Text", new Vector3(0f, -0.1f, -0.1f));
 
         // エラー(詰まり)の警告UI
         GameObject alertObj = new GameObject("AlertIcon");
@@ -77,12 +74,12 @@ public class CombinerNode : FacilityNode
         textObj.transform.localPosition = localPos;
 
         TMPro.TextMeshPro tmp = textObj.AddComponent<TMPro.TextMeshPro>();
-        GameFontSettings.ApplyTo(tmp); // NotoSansJP-Boldなどを適用
+        GameFontSettings.ApplyTo(tmp);
         tmp.text = "?";
         tmp.color = Color.white;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;
-        tmp.fontSize = 8;
-        tmp.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f);
+        tmp.fontSize = 7; // 少し小さめに
+        tmp.rectTransform.sizeDelta = new Vector2(0.8f, 0.4f);
         tmp.sortingOrder = 10;
         return tmp;
     }
@@ -95,8 +92,8 @@ public class CombinerNode : FacilityNode
         sr.sprite = SpriteFactory.GetSquareSprite();
         sr.color = color;
         sr.sortingOrder = 2;
-        pin.transform.localScale = new Vector3(0.3f, 0.3f, 1f);
-        pin.transform.localPosition = new Vector3(dir.ToVector2Int().x * 0.35f, dir.ToVector2Int().y * 0.35f, 0f);
+        pin.transform.localScale = new Vector3(0.25f, 0.25f, 1f);
+        pin.transform.localPosition = new Vector3(dir.ToVector2Int().x * 0.4f, dir.ToVector2Int().y * 0.4f, 0f);
         SpriteFactory.ApplyUnlitMaterial(sr);
 
         GameObject arrowObj = new GameObject("Arrow");
@@ -111,32 +108,30 @@ public class CombinerNode : FacilityNode
 
     public override FacilityType GetFacilityType() => FacilityType.Combiner;
 
-    public override bool CanAcceptItem(Item item)
-    {
-        // 自動吸入（Proximity Intake）するため、コンベアからのプッシュは常に拒否して待機させる
-        return false;
-    }
-
-    public override bool OnItemArrived(Item item)
-    {
-        return false;
-    }
+    public override bool CanAcceptItem(Item item) => false; // 自動吸入のみ
+    public override bool OnItemArrived(Item item) => false;
 
     private void UpdateUI()
     {
-        if (leftTextUI != null)
+        for (int i = 0; i < 2; i++)
         {
-            leftTextUI.text = string.IsNullOrEmpty(leftSlot) ? "?" : leftSlot;
-        }
-        if (rightTextUI != null)
-        {
-            rightTextUI.text = string.IsNullOrEmpty(rightSlot) ? "?" : rightSlot;
+            if (slotTexts[i] == null) continue;
+            if (i < storedKanjis.Count)
+            {
+                slotTexts[i].text = storedKanjis[i];
+                slotTexts[i].color = Color.white;
+            }
+            else
+            {
+                slotTexts[i].text = "?";
+                slotTexts[i].color = new Color(1f, 1f, 1f, 0.3f);
+            }
         }
     }
 
     private void TryMerge()
     {
-        if (string.IsNullOrEmpty(leftSlot) || string.IsNullOrEmpty(rightSlot)) return;
+        if (storedKanjis.Count < 2) return;
         
         // 排出先のチェック
         Vector2Int outPos = ownerCell.GridPosition + outputDirection.ToVector2Int();
@@ -150,47 +145,57 @@ public class CombinerNode : FacilityNode
         if (outCell == null || (!outCell.HasConveyor && !outCell.HasFacility) || outCell.HasItem)
         {
             ShowAlert();
-            return; // 排出先が埋まっているので待機
+            return;
         }
 
         HideAlert();
 
         KanjiDatabaseManager db = KanjiDatabaseManager.Instance;
         string mergedKanji = null;
-        bool merged = db != null && db.TryMergeKanji(new List<string> { leftSlot, rightSlot }, out mergedKanji);
+        bool merged = false;
+
+        if (db != null)
+        {
+            // パターン1: A + B
+            merged = db.TryMergeKanji(new List<string> { storedKanjis[0], storedKanjis[1] }, out mergedKanji);
+            
+            // パターン2: B + A (順不同対応)
+            if (!merged)
+            {
+                merged = db.TryMergeKanji(new List<string> { storedKanjis[1], storedKanjis[0] }, out mergedKanji);
+            }
+        }
 
         if (!merged || string.IsNullOrEmpty(mergedKanji))
         {
-            // --- 失敗パターン：ゴミ（廃棄物）としてそのまま排出する ---
-            int clogMergeCount = leftMergeCount + rightMergeCount;
-            string clogText = leftSlot + rightSlot;
-            if (clogText.Length > 2) clogText = clogText.Substring(0, 2);
+            // 失敗パターン：ゴミ（廃棄物）として排出
+            int totalMerge = 0;
+            foreach (int m in storedMergeCounts) totalMerge += m;
             
-            // スロットリセット
-            leftSlot = "";
-            rightSlot = "";
-            leftMergeCount = 0;
-            rightMergeCount = 0;
+            string combinedText = storedKanjis[0] + storedKanjis[1];
+            if (combinedText.Length > 2) combinedText = combinedText.Substring(0, 2);
+            
+            storedKanjis.Clear();
+            storedMergeCounts.Clear();
             UpdateUI();
 
-            Item cloggedItem = ItemManager.Instance.CreateItem(outPos, clogText, Color.gray, false);
-            cloggedItem.Data.MergeCount = clogMergeCount;
+            Item wasteItem = ItemManager.Instance.CreateItem(outPos, combinedText, Color.gray, false);
+            wasteItem.Data.MergeCount = totalMerge;
             return;
         }
 
-        // --- 成功パターン ---
-        int totalMergeCount = leftMergeCount + rightMergeCount + 2;
+        // 成功パターン
+        int finalMergeCount = 0;
+        foreach (int m in storedMergeCounts) finalMergeCount += m;
+        finalMergeCount += 2;
         
-        // スロットリセット
-        leftSlot = "";
-        rightSlot = "";
-        leftMergeCount = 0;
-        rightMergeCount = 0;
+        storedKanjis.Clear();
+        storedMergeCounts.Clear();
         UpdateUI();
 
-        Color newColor = ItemManager.Instance.GetMergeColor(totalMergeCount);
+        Color newColor = ItemManager.Instance.GetMergeColor(finalMergeCount);
         Item newItem = ItemManager.Instance.CreateItem(outPos, mergedKanji, newColor, false);
-        newItem.Data.MergeCount = totalMergeCount;
+        newItem.Data.MergeCount = finalMergeCount;
         newItem.PlayMergeSuccessPop();
 
         MergeEffectPlayer.PlayMergeBurst(GridManager.Instance.GridToWorld(ownerCell.GridPosition));
@@ -198,20 +203,23 @@ public class CombinerNode : FacilityNode
 
     private void Update()
     {
-        CheckAndSuckItem(outputDirection.RotateCCW(), true);
-        CheckAndSuckItem(outputDirection.RotateCW(), false);
+        if (storedKanjis.Count < 2)
+        {
+            // 出力方向以外の3方向をチェック
+            CheckAndSuckItem(outputDirection.Opposite());
+            CheckAndSuckItem(outputDirection.RotateCCW());
+            CheckAndSuckItem(outputDirection.RotateCW());
+        }
 
-        // 詰まりで待機していた場合、排出先が空いたら再試行
-        if (!string.IsNullOrEmpty(leftSlot) && !string.IsNullOrEmpty(rightSlot))
+        if (storedKanjis.Count >= 2)
         {
             TryMerge();
         }
     }
 
-    private void CheckAndSuckItem(ConveyorDirection dir, bool isLeft)
+    private void CheckAndSuckItem(ConveyorDirection dir)
     {
-        if (isLeft && !string.IsNullOrEmpty(leftSlot)) return;
-        if (!isLeft && !string.IsNullOrEmpty(rightSlot)) return;
+        if (storedKanjis.Count >= 2) return;
 
         Vector2Int neighborPos = ownerCell.GridPosition + dir.ToVector2Int();
         if (GridManager.Instance == null || !GridManager.Instance.IsInBounds(neighborPos)) return;
@@ -220,7 +228,7 @@ public class CombinerNode : FacilityNode
         if (neighborCell != null && neighborCell.HasItem)
         {
             Item item = neighborCell.CurrentItem;
-            if (item.Data == null || item.Data.IsClog || item.IsSucked || item.IsMoving) return;
+            if (item == null || item.Data == null || item.IsSucked || item.IsMoving) return;
 
             item.IsSucked = true;
             if (ItemManager.Instance != null)
@@ -228,47 +236,53 @@ public class CombinerNode : FacilityNode
                 ItemManager.Instance.UnregisterItem(item);
             }
 
-            StartCoroutine(SuckRoutine(item, isLeft));
+            StartCoroutine(SuckRoutine(item));
         }
     }
 
-    private System.Collections.IEnumerator SuckRoutine(Item item, bool isLeft)
+    private System.Collections.IEnumerator SuckRoutine(Item item)
     {
+        if (item == null) yield break;
+
         Vector3 startPos = item.transform.position;
         Vector3 endPos = GridManager.Instance.GridToWorld(ownerCell.GridPosition);
         float distance = Vector3.Distance(startPos, endPos);
-        float duration = distance / 4.0f; // 4.0f is moveSpeed
+        float duration = distance / 4.0f;
         if (duration < 0.05f) duration = 0.05f;
         float elapsed = 0f;
 
         while (elapsed < duration)
         {
+            if (item == null || item.transform == null) yield break;
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             t = t * t * (3f - 2f * t);
+            
             if (item != null && item.transform != null)
-            {
                 item.transform.position = Vector3.Lerp(startPos, endPos, t);
-            }
+                
             yield return null;
         }
 
-        if (item != null)
+        if (item != null && item.Data != null)
         {
-            if (isLeft)
+            if (storedKanjis.Count < 2)
             {
-                leftSlot = item.Data.ItemText;
-                leftMergeCount = item.Data.MergeCount;
+                storedKanjis.Add(item.Data.ItemText);
+                storedMergeCounts.Add(item.Data.MergeCount);
+                item.DestroyItem();
+                UpdateUI();
+                TryMerge();
             }
             else
             {
-                rightSlot = item.Data.ItemText;
-                rightMergeCount = item.Data.MergeCount;
+                // まれに同時に吸い込もうとしてスロットが埋まってしまった場合
+                item.IsSucked = false;
+                // コンベアに戻す処理がないので、とりあえず破棄せずに放置するか、あるいは消去する。
+                // 安全のため、ここではスロットを溢れた分は消去する（基本的には起こらない）。
+                item.DestroyItem();
             }
-
-            item.DestroyItem();
-            UpdateUI();
-            TryMerge();
         }
     }
 

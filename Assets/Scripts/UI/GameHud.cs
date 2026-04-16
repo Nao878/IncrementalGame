@@ -11,6 +11,9 @@ public class GameHud : MonoBehaviour
     private TextMeshProUGUI coinText;
     private TextMeshProUGUI modeBtnText;
     private GameObject bottomBarGo;
+    private GameObject kanjiSelectBtnGo;
+    private TextMeshProUGUI kanjiSelectBtnText;
+    private GameObject kanjiPickerPanel;
 
     public static void EnsureExists()
     {
@@ -48,6 +51,21 @@ public class GameHud : MonoBehaviour
             if (modeBtnText != null)
             {
                 modeBtnText.text = isRunMode ? "編集モードへ" : "稼働モードへ";
+            }
+
+            // 漢字指定ボタンの表示制御
+            if (kanjiSelectBtnGo != null)
+            {
+                bool isGenSelected = BuildModeController.Instance != null && BuildModeController.Instance.SelectedType == FacilityType.Generator;
+                if (kanjiSelectBtnGo.activeSelf != isGenSelected)
+                {
+                    kanjiSelectBtnGo.SetActive(isGenSelected);
+                }
+
+                if (isGenSelected && kanjiSelectBtnText != null && BuildModeController.Instance != null)
+                {
+                    kanjiSelectBtnText.text = "生成：" + BuildModeController.Instance.SelectedKanjiToSpawn;
+                }
             }
         }
     }
@@ -159,12 +177,138 @@ public class GameHud : MonoBehaviour
         hlg.childForceExpandWidth = false;
 
         CreateButton(bottomBarGo.transform, "ベルトコンベア", () => BuildModeController.Instance?.SelectFacility(FacilityType.Conveyor));
+        
+        // 漢字指定ボタン (発生機の隣に配置)
+        kanjiSelectBtnGo = CreateButtonWithRef(bottomBarGo.transform, "生成：木", () => ToggleKanjiPicker(), out kanjiSelectBtnText);
+        kanjiSelectBtnGo.SetActive(false); // 初期は非表示
+
         CreateButton(bottomBarGo.transform, "発生機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Generator));
         CreateButton(bottomBarGo.transform, "合成機", () => BuildModeController.Instance?.SelectFacility(FacilityType.Combiner));
         CreateButton(bottomBarGo.transform, "焼却炉", () => BuildModeController.Instance?.SelectFacility(FacilityType.Incinerator));
         CreateButton(bottomBarGo.transform, "削除", () => BuildModeController.Instance?.SelectFacility(FacilityType.Delete));
         CreateButton(bottomBarGo.transform, "回転", () => BuildModeController.Instance?.RotatePreview());
         CreateButton(bottomBarGo.transform, "キャンセル", () => BuildModeController.Instance?.SelectFacility(FacilityType.None));
+    }
+
+    private void ToggleKanjiPicker()
+    {
+        if (kanjiPickerPanel == null)
+        {
+            kanjiPickerPanel = CreateKanjiPicker(transform);
+        }
+        else
+        {
+            kanjiPickerPanel.SetActive(!kanjiPickerPanel.activeSelf);
+        }
+    }
+
+    private GameObject CreateKanjiPicker(Transform parent)
+    {
+        GameObject panel = new GameObject("KanjiPickerPanel");
+        panel.transform.SetParent(parent, false);
+        
+        Image bg = panel.AddComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.8f);
+        
+        RectTransform rt = panel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.sizeDelta = new Vector2(400, 300);
+        rt.anchoredPosition = new Vector2(0, 50);
+
+        GameObject titleGo = new GameObject("Title");
+        titleGo.transform.SetParent(panel.transform, false);
+        var titleText = titleGo.AddComponent<TextMeshProUGUI>();
+        GameFontSettings.ApplyTo(titleText);
+        titleText.text = "生成する漢字を選択";
+        titleText.fontSize = 24;
+        titleText.alignment = TextAlignmentOptions.Center;
+        titleText.rectTransform.anchorMin = new Vector2(0, 1);
+        titleText.rectTransform.anchorMax = new Vector2(1, 1);
+        titleText.rectTransform.pivot = new Vector2(0.5f, 1);
+        titleText.rectTransform.anchoredPosition = new Vector2(0, -10);
+        titleText.rectTransform.sizeDelta = new Vector2(0, 40);
+
+        GameObject gridGo = new GameObject("Grid");
+        gridGo.transform.SetParent(panel.transform, false);
+        RectTransform grt = gridGo.AddComponent<RectTransform>();
+        grt.anchorMin = Vector2.zero;
+        grt.anchorMax = Vector2.one;
+        grt.offsetMin = new RectOffset(20, 20, 20, 50).left * Vector2.right + new RectOffset(20, 20, 20, 50).bottom * Vector2.up;
+        grt.offsetMax = -new RectOffset(20, 20, 20, 50).right * Vector2.right - new RectOffset(20, 20, 20, 50).top * Vector2.up;
+
+        GridLayoutGroup glg = gridGo.AddComponent<GridLayoutGroup>();
+        glg.cellSize = new Vector2(60, 60);
+        glg.spacing = new Vector2(10, 10);
+        glg.childAlignment = TextAnchor.MiddleCenter;
+
+        string[] kanjis = { "木", "日", "月", "火", "水", "金", "土" };
+        foreach (var k in kanjis)
+        {
+            CreatePickerButton(gridGo.transform, k, () => {
+                BuildModeController.Instance?.SetSelectedKanji(k);
+                panel.SetActive(false);
+            });
+        }
+
+        return panel;
+    }
+
+    private void CreatePickerButton(Transform parent, string kanji, UnityEngine.Events.UnityAction action)
+    {
+        GameObject btnGo = new GameObject("PickerBtn_" + kanji);
+        btnGo.transform.SetParent(parent, false);
+        
+        Image img = btnGo.AddComponent<Image>();
+        img.color = new Color(0.25f, 0.25f, 0.25f, 1f);
+        
+        Button btn = btnGo.AddComponent<Button>();
+        btn.onClick.AddListener(action);
+        
+        GameObject textGo = new GameObject("Text");
+        textGo.transform.SetParent(btnGo.transform, false);
+        var t = textGo.AddComponent<TextMeshProUGUI>();
+        GameFontSettings.ApplyTo(t);
+        t.text = kanji;
+        t.fontSize = 32;
+        t.alignment = TextAlignmentOptions.Center;
+        t.rectTransform.anchorMin = Vector2.zero;
+        t.rectTransform.anchorMax = Vector2.one;
+        t.rectTransform.offsetMin = Vector2.zero;
+        t.rectTransform.offsetMax = Vector2.zero;
+    }
+
+    private GameObject CreateButtonWithRef(Transform parent, string label, UnityEngine.Events.UnityAction action, out TextMeshProUGUI textRef)
+    {
+        GameObject buttonGo = new GameObject(label + "Button");
+        buttonGo.transform.SetParent(parent, false);
+        Image bg = buttonGo.AddComponent<Image>();
+        bg.color = new Color(0.18f, 0.22f, 0.28f, 0.95f);
+        Button btn = buttonGo.AddComponent<Button>();
+        btn.onClick.AddListener(action);
+
+        LayoutElement le = buttonGo.AddComponent<LayoutElement>();
+        le.preferredWidth = 140f;
+        le.preferredHeight = 72f;
+
+        GameObject textGo = new GameObject("Text");
+        textGo.transform.SetParent(buttonGo.transform, false);
+        textRef = textGo.AddComponent<TextMeshProUGUI>();
+        GameFontSettings.ApplyTo(textRef);
+        textRef.text = label;
+        textRef.color = Color.white;
+        textRef.enableAutoSizing = true;
+        textRef.fontSizeMin = 14;
+        textRef.fontSizeMax = 26;
+        textRef.alignment = TextAlignmentOptions.Center;
+        
+        RectTransform tr = textRef.rectTransform;
+        tr.anchorMin = Vector2.zero;
+        tr.anchorMax = Vector2.one;
+        tr.offsetMin = Vector2.zero;
+        tr.offsetMax = Vector2.zero;
+        
+        return buttonGo;
     }
 
     private void CreateButton(Transform parent, string label, UnityEngine.Events.UnityAction action)

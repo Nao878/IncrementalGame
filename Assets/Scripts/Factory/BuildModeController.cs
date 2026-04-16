@@ -19,6 +19,10 @@ public class BuildModeController : MonoBehaviour
     private SpriteRenderer ghostArrow;
     private GameObject ghostGenPivot;
     private GameObject ghostCombinerPivot;
+    private string selectedKanjiToSpawn = "木";
+    private TMPro.TextMeshPro ghostGenKanjiTmp;
+
+    public string SelectedKanjiToSpawn => selectedKanjiToSpawn;
 
     public FacilityType SelectedType => selectedType;
     public ConveyorDirection PreviewDirection => previewDirection;
@@ -163,6 +167,17 @@ public class BuildModeController : MonoBehaviour
         genTmp.rectTransform.sizeDelta = new Vector2(1f, 1f);
         genTmp.sortingOrder = 32;
 
+        GameObject gK = new GameObject("GenKanji");
+        gK.transform.SetParent(ghostGenPivot.transform, false);
+        gK.transform.localPosition = Vector3.zero;
+        ghostGenKanjiTmp = gK.AddComponent<TMPro.TextMeshPro>();
+        GameFontSettings.ApplyTo(ghostGenKanjiTmp);
+        ghostGenKanjiTmp.text = selectedKanjiToSpawn;
+        ghostGenKanjiTmp.color = Color.white;
+        ghostGenKanjiTmp.alignment = TMPro.TextAlignmentOptions.Center;
+        ghostGenKanjiTmp.fontSize = 6;
+        ghostGenKanjiTmp.sortingOrder = 33;
+
         // Combiner Preview UI
         ghostCombinerPivot = new GameObject("GhostCombinerPivot");
         ghostCombinerPivot.transform.SetParent(ghost.transform, false);
@@ -306,6 +321,15 @@ public class BuildModeController : MonoBehaviour
             if (ghostArrow != null) ghostArrow.gameObject.SetActive(isConveyor);
             if (ghostGenPivot != null) ghostGenPivot.gameObject.SetActive(isGen);
             if (ghostCombinerPivot != null) ghostCombinerPivot.gameObject.SetActive(isComb);
+        }
+    }
+
+    public void SetSelectedKanji(string kanji)
+    {
+        selectedKanjiToSpawn = kanji;
+        if (ghostGenKanjiTmp != null)
+        {
+            ghostGenKanjiTmp.text = kanji;
         }
     }
 }
